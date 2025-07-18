@@ -103,14 +103,14 @@ def prep_input_gasto_directo(
     mapping_gastos = {
         "expedicion_comisiones": "gasto_comi_directo",
         "expedicion_otros": "gasto_otro_directo",
+        "terremoto_factor_pprr": "terremoto_factor_pprr",
+        "terremoto_nota_tecnica": "terremoto_nota_tecnica",
     }
 
     input_gasto_directo = produccion_df.filter(
         pl.col('fecha_contabilizacion_recibo') <= fe_valoracion
     ).pipe(
         cruces.cruzar_gastos_expedicion, gasto_df
-    ).filter(
-        pl.col("tipo_gasto").is_in(list(mapping_gastos.keys()))
     ).with_columns(
         # mapea el tipo insumo segun el tipo de gasto
         pl.col('tipo_gasto').replace(mapping_gastos).alias('tipo_insumo')
