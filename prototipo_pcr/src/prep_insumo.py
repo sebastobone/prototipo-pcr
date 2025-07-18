@@ -101,24 +101,19 @@ def prep_input_gasto_directo(
     ) -> pl.DataFrame:
 
     mapping_gastos = {
-        "porc_gasto_expedicion_comisiones": "gasto_comi_directo",
-        "porc_gasto_expedicion_otros": "gasto_otro_directo",
+        "expedicion_comisiones": "gasto_comi_directo",
+        "expedicion_otros": "gasto_otro_directo",
     }
 
     input_gasto_directo = produccion_df.filter(
         pl.col('fecha_contabilizacion_recibo') <= fe_valoracion
-    ).pipe(cruces.cruzar_gastos_expedicion, gasto_df)
-    # es necesario pivotear para separar la parte de comisiones y otros
-    value_vars = ["porc_gasto_expedicion_comisiones", "porc_gasto_expedicion_otros"]
-    id_vars = [col for col in input_gasto_directo.columns if col not in value_vars]
-    input_gasto_directo = input_gasto_directo.melt(
-        id_vars=id_vars,
-        value_vars=value_vars,
-        variable_name = 'tipo_gasto_expedicion',
-        value_name = 'porc_gasto_expedicion'
+    ).pipe(
+        cruces.cruzar_gastos_expedicion, gasto_df
+    ).filter(
+        pl.col("tipo_gasto").is_in(list(mapping_gastos.keys()))
     ).with_columns(
         # mapea el tipo insumo segun el tipo de gasto
-        pl.col('tipo_gasto_expedicion').replace(mapping_gastos).alias('tipo_insumo')
+        pl.col('tipo_gasto').replace(mapping_gastos).alias('tipo_insumo')
     ).pipe(
         cruces.cruzar_param_contabilidad, param_contabilidad).pipe(
             cruces.cruzar_excepciones_50_50, excepciones_df
@@ -132,7 +127,7 @@ def prep_input_gasto_directo(
         fe_fin_vig_nivel.alias("fecha_fin_devengo")
     ).with_columns(
         # valor base del devengo es el porc de gasto aplicado sobre la prima emitida
-        ( pl.col('valor_prima_emitida') * pl.col("porc_gasto_expedicion")).alias("valor_base_devengo")
+        ( pl.col('valor_prima_emitida') * pl.col("porc_gasto")).alias("valor_base_devengo")
     )
     return input_gasto_directo
 
@@ -215,23 +210,19 @@ def prep_input_gasto_rea(
     ) -> pl.DataFrame:
 
     mapping_gastos = {
-        "porc_gasto_expedicion_comisiones": "gasto_comi_rea_prop",
-        "porc_gasto_expedicion_otros": "gasto_otro_rea_prop",
+        "expedicion_comisiones": "gasto_comi_rea_prop",
+        "expedicion_otros": "gasto_otro_rea_prop",
     }
+    
     input_gasto_rea = cesion_rea_df.filter(
         pl.col('fecha_contabilizacion_recibo') <= fe_valoracion
-    ).pipe(cruces.cruzar_gastos_expedicion, gasto_df, True)
-    # es necesario pivotear para separar la parte de comisiones y otros
-    value_vars = ["porc_gasto_expedicion_comisiones", "porc_gasto_expedicion_otros"]
-    id_vars = [col for col in input_gasto_rea.columns if col not in value_vars]
-    input_gasto_rea = input_gasto_rea.melt(
-        id_vars=id_vars,
-        value_vars=value_vars,
-        variable_name = 'tipo_gasto_expedicion',
-        value_name = 'porc_gasto_expedicion'
+    ).pipe(
+        cruces.cruzar_gastos_expedicion, gasto_df, True
+    ).filter(
+        pl.col("tipo_gasto").is_in(list(mapping_gastos.keys()))
     ).with_columns(
         # mapea el tipo insumo segun el tipo de gasto
-        pl.col('tipo_gasto_expedicion').replace(mapping_gastos).alias('tipo_insumo')
+        pl.col('tipo_gasto').replace(mapping_gastos).alias('tipo_insumo')
     ).pipe(
         cruces.cruzar_param_contabilidad, param_contabilidad).pipe(
             cruces.cruzar_excepciones_50_50, excepciones_df
@@ -245,7 +236,7 @@ def prep_input_gasto_rea(
         fe_fin_vig_nivel.alias("fecha_fin_devengo")
     ).with_columns(
         # valor base del devengo es el porc de gasto aplicado sobre la prima cedida abierta por reasegurador
-        ( pl.col('valor_prima_cedida') * pl.col("porc_gasto_expedicion") * pl.col("porc_participacion_reasegurador")
+        ( pl.col('valor_prima_cedida') * pl.col("porc_gasto") * pl.col("porc_participacion_reasegurador")
         ).alias("valor_base_devengo")
     )
     return input_gasto_rea

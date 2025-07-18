@@ -72,7 +72,7 @@ def cruzar_gastos_expedicion(
     en este cruce aparezcan todas las combinaciones de la prima con tipo_contabilidad.
     Evita duplicados usando prioridad de coincidencia para usar comodines correctamente
     """
-    return duckdb.sql(f"""
+    return duckdb.sql("""
         -- prioridad de cruce por comodin para evitar duplicados
         WITH gastos_priorizados AS (
             SELECT
@@ -88,8 +88,8 @@ def cruzar_gastos_expedicion(
             SELECT
                 prod.*,
                 g.tipo_contabilidad,
-                g.porc_gasto_expedicion_comisiones,
-                g.porc_gasto_expedicion_otros,
+                g.tipo_gasto,
+                g.porc_gasto,
                 g.prioridad_match,
                 ROW_NUMBER() OVER (
                     PARTITION BY 
@@ -98,7 +98,8 @@ def cruzar_gastos_expedicion(
                         prod.canal,
                         prod.poliza,
                         prod.recibo,
-                        g.tipo_contabilidad
+                        g.tipo_contabilidad,
+                        g.tipo_gasto
                     ORDER BY g.prioridad_match
                 ) AS rn
             FROM produccion AS prod
