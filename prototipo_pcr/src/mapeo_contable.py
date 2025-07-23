@@ -59,36 +59,85 @@ def cruzar_diccionario_bt(out_devengo_fluct:pl.DataFrame, mapeo_bt:pl.DataFrame)
     ).pl()
 
 
-def transformar_columnas_calculo_a_filas(out_devengo_fluct: pl.DataFrame, cols_calculadas: list) -> pl.DataFrame:
+def pivotear_output(
+        out_deterioro_fluct: pl.DataFrame, 
+        cols_calculadas: list
+    ) -> pl.DataFrame:
     """
     El output de devengo es wide, se transforma a long para cruzar con BTs.
     """
-    columnas_indice = [col for col in out_devengo_fluct.columns if col not in cols_calculadas]
+    columnas_indice = [col for col in out_deterioro_fluct.columns if col not in cols_calculadas]
 
-    if 'tasa_cambio_fecha_valoracion' in out_devengo_fluct.columns:
+    # Validar que existe la tasa de cambio para expresar valores en pesos
+    if 'tasa_cambio_fecha_valoracion' in out_deterioro_fluct.columns:
         multiplicador = pl.col('tasa_cambio_fecha_valoracion')
     else:
         print("[WARN] La columna 'tasa_cambio_fecha_valoracion' no está presente, se asumirá 1.")
         multiplicador = pl.lit(1.0)
 
     return (
-        out_devengo_fluct.unpivot(index=columnas_indice, variable_name="tipo_movimiento", value_name='valor_md')
-            .with_columns(
-                (multiplicador * pl.col('valor_md')).alias('valor_ml')
-            )
-            .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0.0))
+        out_deterioro_fluct
+        # columnas calculadas a filas
+        .unpivot(
+            index=columnas_indice, 
+            variable_name="tipo_movimiento", 
+            value_name='valor_md'
+        )
+        # convierte valores validos a pesos
+        .filter(pl.col("valor_md").is_not_null())
+        .with_columns(
+            (multiplicador * pl.col('valor_md')).alias('valor_ml')
+        )
+        # Reasigna el componente a deterioro cuando corresponde
+        .with_columns(
+            pl.when(pl.col('tipo_movimiento').is_in(['constitucion_deterioro', 'liberacion_deterioro']))
+            .then(pl.lit('deterioro'))
+            .otherwise(pl.col('componente'))
+            .alias('componente')
+        )
     )
 
 
+def add_registros_dac(out_contable:pl.DataFrame) -> pl.DataFrame:
+    """
+    Duplica las filas del gasto aplicado al reaseguro proporcional pero con el signo contrario
+    esto para incluir el componente de ajuste del DAC cedido. Solo aplica en IFRS 4
+    """
+    dac_rea = out_contable.filter(
+        (pl.col('tipo_insumo').is_in(['gasto_comi_rea_prop', 'gasto_otro_rea_prop'])) &
+        (pl.col('tipo_contabilidad') == 'ifrs4')
+    ).with_columns([
+        pl.lit('ajuste_dac_cedido').alias('tipo_insumo'),
+        (pl.col('valor') * -1 ).alias('valor')
+    ])
+    return pl.concat([out_contable, dac_rea])
 
-def gen_output_contable(output_devengo_fluct:pl.DataFrame, tabla_mapeo_bt:pl.DataFrame, tabla_tipo_seg:pl.DataFrame):
+
+def gen_output_contable(
+        out_det_fluc:pl.DataFrame, 
+        tabla_mapeo_bt:pl.DataFrame, 
+        tabla_tipo_seg:pl.DataFrame
+    ) -> pl.DataFrame:
     """
     Se encarga de aplicar los pasos para obtener el output segun requerimientos contables
     """
-    print(sorted(output_devengo_fluct.columns))
+
     return (
-        output_devengo_fluct.filter(pl.col('estado_devengo') != 'finalizado')
+        out_det_fluc
+        .with_columns([
+            pl.when(pl.col('tipo_seguro') == "directo")
+            .then(pl.lit('D'))
+            .otherwise(pl.lit('R'))
+            .alias('naturaleza'),
+            pl.when(pl.col('tipo_seguro') == "reaseguro_proporcional")
+            .then(pl.lit('PP'))
+            .when(pl.col('tipo_seguro') == "reaseguro__no_proporcional")
+            .then(pl.lit('NP'))
+            .otherwise(pl.lit('No aplica'))
+            .alias('tipo_reaseguro')
+        ])
         .pipe(asignar_tipo_seguro, tabla_tipo_seg)
-        .pipe(transformar_columnas_calculo_a_filas, params.COLUMNAS_CALCULO)
+        .pipe(pivotear_output, params.COLUMNAS_CALCULO)
+        .pipe(add_registros_dac)
         .pipe(cruzar_diccionario_bt, tabla_mapeo_bt)
     )
