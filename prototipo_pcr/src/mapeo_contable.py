@@ -12,11 +12,18 @@ import src.parametros as params
 import src.cruces as cruces
 import duckdb
 
+# Tipo_reserva = PCR CP para todos
+# Columnas a Filas
+# Componente:
+# Tipo_Movimiento: si es transicion cambiarle el nombre al saldo
+
 
 def asignar_tipo_seguro(base:pl.DataFrame, tipo_seg:pl.DataFrame) -> pl.DataFrame:
     """
     Asigna la clasificacion del ramo por tipo de seguro al output contable
     """
+    duckdb.register("base", base)
+    duckdb.register("tipo_seg", tipo_seg)
     return duckdb.sql(
         """
         SELECT
@@ -30,7 +37,7 @@ def asignar_tipo_seguro(base:pl.DataFrame, tipo_seg:pl.DataFrame) -> pl.DataFram
     ).pl()
 
 
-def cruzar_diccionario_bt(out_devengo:pl.DataFrame, mapeo_bt:pl.DataFrame) ->pl.DataFrame:
+def cruzar_diccionario_bt(out_devengo_fluct:pl.DataFrame, mapeo_bt:pl.DataFrame) ->pl.DataFrame:
     """
     Cruza output de devengo con la tabla de bts
     """
@@ -40,7 +47,7 @@ def cruzar_diccionario_bt(out_devengo:pl.DataFrame, mapeo_bt:pl.DataFrame) ->pl.
             base.*
             , bt.descripcion AS descripcion_bt
             , bt.bt AS bt
-        FROM out_devengo as base
+        FROM out_devengo_fluct as base
         INNER JOIN mapeo_bt AS bt
             ON base.tipo_contabilidad = bt.tipo_contabilidad
             AND base.tipo_insumo = bt.tipo_insumo
@@ -52,29 +59,36 @@ def cruzar_diccionario_bt(out_devengo:pl.DataFrame, mapeo_bt:pl.DataFrame) ->pl.
     ).pl()
 
 
-def transformar_columnas_calculo_a_filas(base:pl.DataFrame, columnas:list) -> pl.DataFrame:
+def transformar_columnas_calculo_a_filas(out_devengo_fluct: pl.DataFrame, cols_calculadas: list) -> pl.DataFrame:
     """
-    el output de devengo es wide, se transforma a long para cruzar con BTs
+    El output de devengo es wide, se transforma a long para cruzar con BTs.
     """
-    columnas_indice = [col for col in base.columns if col not in columnas]
+    columnas_indice = [col for col in out_devengo_fluct.columns if col not in cols_calculadas]
+
+    if 'tasa_cambio_fecha_valoracion' in out_devengo_fluct.columns:
+        multiplicador = pl.col('tasa_cambio_fecha_valoracion')
+    else:
+        print("[WARN] La columna 'tasa_cambio_fecha_valoracion' no está presente, se asumirá 1.")
+        multiplicador = pl.lit(1.0)
+
     return (
-        base.unpivot(index=columnas_indice, variable_name = "tipo_movimiento", value_name = 'valor_md')
+        out_devengo_fluct.unpivot(index=columnas_indice, variable_name="tipo_movimiento", value_name='valor_md')
             .with_columns(
-                # Reexpresa el valor en moneda local, debe haber pasado por fluctuacion para tener tasas
-                (pl.col('tasa_cambio_fecha_valoracion') * pl.col('valor_md'))
-                .alias('valor_ml')
-                # Solo deja movimientos que no sean 0.0
-            ).filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0.0))
+                (multiplicador * pl.col('valor_md')).alias('valor_ml')
+            )
+            .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0.0))
     )
 
 
-def gen_output_contable(output_devengo:pl.DataFrame, tabla_mapeo_bt:pl.DataFrame, tabla_tipo_seg:pl.DataFrame):
+
+def gen_output_contable(output_devengo_fluct:pl.DataFrame, tabla_mapeo_bt:pl.DataFrame, tabla_tipo_seg:pl.DataFrame):
     """
     Se encarga de aplicar los pasos para obtener el output segun requerimientos contables
     """
+    print(sorted(output_devengo_fluct.columns))
     return (
-    output_devengo.filter(pl.col('estado_devengo') != 'finalizado')
-    .pipe(asignar_tipo_seguro, tabla_tipo_seg)
-    .pipe(transformar_columnas_calculo_a_filas, params.COLUMNAS_CALCULO)
-    .pipe(cruzar_diccionario_bt, tabla_mapeo_bt)
-)
+        output_devengo_fluct.filter(pl.col('estado_devengo') != 'finalizado')
+        .pipe(asignar_tipo_seguro, tabla_tipo_seg)
+        .pipe(transformar_columnas_calculo_a_filas, params.COLUMNAS_CALCULO)
+        .pipe(cruzar_diccionario_bt, tabla_mapeo_bt)
+    )

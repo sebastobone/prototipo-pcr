@@ -1,6 +1,6 @@
 """
 Funciones para el cálculo de la fluctuación por tasa de cambio de los componentes de la reserva
-se diferencian dos funciones porque la metodología actual se cambió para ifrs17
+se condiciona porque la metodología cambia para ifrs17 vs ifrs4
 """
 
 import src.aux_tools as aux_tools
@@ -18,23 +18,20 @@ def calc_fluctuacion(data_devengo:pl.DataFrame, tasas_cambio:pl.DataFrame) -> pl
     # incluir columnas de estos deltas en el output
     delta_tc_bautizo = pl.col('tasa_cambio_fecha_valoracion') - pl.col('tasa_cambio_fecha_constitucion')
     delta_tc_mensual = pl.col('tasa_cambio_fecha_valoracion') - pl.col('tasa_cambio_fecha_valoracion_anterior')
-    delta_tc_liquid = pl.col('tasa_cambio_fecha_liquidacion') - pl.col('tasa_cambio_fecha_valoracion_anterior')
-    # usa el cambio en tasa respecto a la fecha de liquidacion cuando es el ultimo mes de devengo
-    es_mes_liquidacion = aux_tools.yyyymm(pl.col('fecha_fin_devengo')) == aux_tools.yyyymm(pl.col('fecha_valoracion'))
-    delta_tc_lib = pl.when(es_mes_liquidacion).then(delta_tc_liquid).otherwise(delta_tc_mensual)
     
+    # usa el cambio en tasa respecto a la fecha de bautizo cuando es el primer mes de devengo
+    es_mes_inicio = aux_tools.yyyymm(pl.col('fecha_constitucion')) == aux_tools.yyyymm(pl.col('fecha_valoracion'))
+    delta_tc = pl.when(es_mes_inicio).then(delta_tc_bautizo).otherwise(delta_tc_mensual)
+
     data_devengo_mext = data_devengo_mext.with_columns(
         # define fecha cierre anterior para el delta
         pl.col('fecha_valoracion').dt.offset_by('-1mo').alias('fecha_valoracion_anterior')
-    ).pipe(cruces.cruzar_tasas_cambio, tasas_cambio).with_columns(
-        pl.when(pl.col('tipo_contabilidad') == "ifrs4")
-        .then(pl.lit(0.0))  # en 4 no se fluctua constitucion
-        .otherwise(pl.col('valor_constitucion').abs() * delta_tc_bautizo) # en 17 con la tasa bautizo
+    ).pipe(cruces.cruzar_tasas_cambio, tasas_cambio, liquidacion=False).with_columns(
+        (pl.col('saldo') * delta_tc)
         .alias('fluctuacion_constitucion')
     ).with_columns(
-        pl.when(pl.col('tipo_contabilidad') == "ifrs4")
-        .then(pl.col('saldo').abs() * delta_tc_mensual)
-        .otherwise(pl.col('saldo').abs() * delta_tc_lib)
+        # El signo de la liberacion se invierte para reflejar el efecto economico
+        (-1 * pl.col('valor_liberacion') * delta_tc)
         .alias('fluctuacion_liberacion')
     )
     cols_fluc =  ["fluctuacion_constitucion", "fluctuacion_liberacion"]

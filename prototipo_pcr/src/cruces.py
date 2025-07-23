@@ -72,7 +72,7 @@ def cruzar_gastos_expedicion(
     en este cruce aparezcan todas las combinaciones de la prima con tipo_contabilidad.
     Evita duplicados usando prioridad de coincidencia para usar comodines correctamente
     """
-    return duckdb.sql("""
+    return duckdb.sql(f"""
         -- prioridad de cruce por comodin para evitar duplicados
         WITH gastos_priorizados AS (
             SELECT
@@ -85,7 +85,7 @@ def cruzar_gastos_expedicion(
             FROM gastos g
         ),
         cruce AS (
-            SELECT
+            SELECT 
                 prod.*,
                 g.tipo_contabilidad,
                 g.tipo_gasto,
@@ -98,8 +98,7 @@ def cruzar_gastos_expedicion(
                         prod.canal,
                         prod.poliza,
                         prod.recibo,
-                        g.tipo_contabilidad,
-                        g.tipo_gasto
+                        g.tipo_contabilidad
                     ORDER BY g.prioridad_match
                 ) AS rn
             FROM produccion AS prod
@@ -165,27 +164,51 @@ def cruzar_excepciones_50_50(
     return base
 
 
-def cruzar_tasas_cambio(base: pl.DataFrame, tasas_cambio: pl.DataFrame) -> pl.DataFrame:
+def cruzar_tasas_cambio(
+        base: pl.DataFrame, 
+        tasas_cambio: pl.DataFrame,
+        val_anterior:bool=True,
+        bautizo:bool=True,
+        liquidacion:bool=True
+        ) -> pl.DataFrame:
+    
+    # Crea la parte opcional del query para cruzar otras tasas
+    tasa_bool = [val_anterior, bautizo, liquidacion]
+    tasa_col = [
+        ", COALESCE(tfval_ant.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_anterior",
+        ", COALESCE(tconst.tasa_cambio, 1) AS tasa_cambio_fecha_constitucion",
+        ", COALESCE(tliquid.tasa_cambio, 1) AS tasa_cambio_fecha_liquidacion",
+    ]
+    tasa_join = [
+        """LEFT JOIN tasas_cambio AS tfval_ant
+            ON base.fecha_fin_devengo = tfval_ant.fecha
+            AND base.moneda = tfval_ant.moneda_origen""",
+        """LEFT JOIN tasas_cambio AS tconst
+            ON base.fecha_constitucion = tconst.fecha
+            AND base.moneda = tconst.moneda_origen""",
+       """LEFT JOIN tasas_cambio AS tliquid
+           ON base.fecha_fin_devengo = tliquid.fecha
+           AND base.moneda = tliquid.moneda_origen"""
+    ]
+    cols_query, joins_query = "", ""
+    for tb, tc, tj in zip(tasa_bool, tasa_col, tasa_join):
+        if tb:
+            cols_query += "\n" + tc
+            joins_query += "\n" + tj
+
+    duckdb.register("base", base)
+    duckdb.register("tasas_cambio", tasas_cambio)
+    
     return duckdb.sql(
-        """
+        f"""
         SELECT
             base.*
-            , COALESCE(tconst.tasa_cambio, 1) AS tasa_cambio_fecha_constitucion
             , COALESCE(tfval.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion
-            , COALESCE(tfval_ant.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_anterior
-            , COALESCE(tliquid.tasa_cambio, 1) AS tasa_cambio_fecha_liquidacion
+            {cols_query}
         FROM base
-        LEFT JOIN tasas_cambio AS tconst
-            ON base.fecha_constitucion = tconst.fecha
-            AND base.moneda = tconst.moneda_origen
         LEFT JOIN tasas_cambio AS tfval
             ON base.fecha_valoracion = tfval.fecha
             AND base.moneda = tfval.moneda_origen
-        LEFT JOIN tasas_cambio AS tfval_ant
-            ON base.fecha_valoracion_anterior = tfval_ant.fecha
-            AND base.moneda = tfval_ant.moneda_origen
-        LEFT JOIN tasas_cambio AS tliquid
-            ON base.fecha_fin_devengo = tfval_ant.fecha
-            AND base.moneda = tfval_ant.moneda_origen
+            {joins_query}
         """
     ).pl()
