@@ -305,17 +305,15 @@ def devengar(input_deveng:pl.DataFrame, fe_valoracion:dt.date) -> pl.DataFrame:
         return pl.DataFrame()
     
     # retorna un consolidado tipo union all de los outputs
-    output_devengo_consolidado = pl.concat(outputs, how="diagonal").with_columns(
+    output_devengo_consolidado = pl.concat(outputs, how="diagonal").with_columns([
         # aplica el signo de reserva segun tipo insumo y movimientos
-            (pl.col('valor_constitucion') * pl.col('signo_constitucion')).alias('valor_constitucion')
-        ).with_columns(
-            (pl.col('saldo') * pl.col('signo_constitucion')).alias('saldo')
-        ).with_columns(
-            (pl.col('valor_liberacion') * -1 * pl.col('signo_constitucion')).alias('valor_liberacion')
-        ).with_columns(
-            (pl.col('valor_liberacion_acum') * -1 * pl.col('signo_constitucion')).alias('valor_liberacion_acum')
-        ).pipe(
-        etiquetar_resultado_devengo
+            (pl.col('valor_constitucion') * pl.col('signo_constitucion')).alias('valor_constitucion'),
+            (pl.col('valor_liberacion') * -1 * pl.col('signo_constitucion')).alias('valor_liberacion'),
+            (pl.col('valor_liberacion_acum') * -1 * pl.col('signo_constitucion')).alias('valor_liberacion_acum'),
+            (pl.col('saldo') * pl.col('signo_constitucion')).alias('saldo'),
+            (pl.col('saldo') - pl.col('valor_constitucion') - pl.col('valor_liberacion')).alias('saldo_anterior')
+        ]).pipe(
+            etiquetar_resultado_devengo
         )
     
     campos_output.extend(params.CAMPOS_OUTPUT_CALCULADO)
