@@ -63,24 +63,17 @@ CAMPOS_OUTPUT_CALCULADO = [
     "estado_devengo", "valor_constitucion", "valor_liberacion", "valor_liberacion_acum", "saldo", # movimientos y saldo
 ]
 
-# Las columnas que definen una unidad de cuenta para deterioro
-COLUMNAS_UOA = [
-    'tipo_contabilidad',
-    'contrato_reaseguro', 
-    'tipo_contrato', 
-    'tipo_negocio', 
-    'cohorte', 
-    'compania', 
-    'ramo_sura',
-    'moneda',
-    'nit_reasegurador',
-]
+# a qué tipos de contabilidad aplica deterioro
+APLICA_DETERIORO = ['ifrs17_local', 'ifrs_17_corporativo']
 
-# Las columnas que se deben pivotear para el cruce de BTs
+
+# Las columnas que se deben pivotear para el output contable
 COLUMNAS_CALCULO = [
     'valor_constitucion', 
     'valor_liberacion', 
     'saldo',
     'fluctuacion_liberacion',
-    'fluctuacion_constitucion'
+    'fluctuacion_constitucion',
+    'constitucion_deterioro',
+    'liberacion_deterioro',
 ]
