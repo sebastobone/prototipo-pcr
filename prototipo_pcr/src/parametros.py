@@ -10,7 +10,7 @@ SKIP_ROWS = 1
 
 # Ubicación de los insumos relativa al script de ejecución
 RUTA_INSUMOS = base_dir.parent / "inputs" / "insumos.xlsx"
-RUTA_REL_BT = base_dir.parent / "inputs" / "tabla_relacion_bt.xlsx"
+RUTA_REL_BT = base_dir.parent / "inputs" / "relacion_bt.xlsx"
 
 # Insumos transversales
 HOJA_PARAMETROS_CONTAB = "param_contabilidad"
@@ -21,7 +21,7 @@ HOJA_DESCUENTO = "porc_descuento"
 HOJA_TIPO_SEGURO = "tipo_seguro"
 HOJA_CUENTAS_REA = "cuentas_reaseguro"
 RUTA_RIESGO_CREDITO = base_dir.parent / "inputs" / "riesgo_credito.xlsx"
-RUTA_HISTORICO_DETERIORO = base_dir.parent / "inputs" / "historico_deterioro.xlsx"
+
 # Insumos de recibos contabilizados
 HOJA_PDN = "produccion_directo"
 HOJA_CESION = "produccion_rea"

@@ -5,6 +5,8 @@ Todas las funciones auxiliares empleadas en los distintos calculos
 import polars as pl
 import datetime as dt
 import calendar
+import unicodedata
+import re
 
 
 def get_fecha_nivel(columna_nivel: str, niveles: list[str], prefijo: str) -> pl.Expr:
@@ -85,3 +87,20 @@ def alinear_esquemas(dataframes: list[pl.DataFrame]) -> list[pl.DataFrame]:
         dataframes_ajustados.append(df)
 
     return dataframes_ajustados
+
+
+def estandarizar_nombre_columna(nombre):
+    # Quita tildes
+    nombre = unicodedata.normalize('NFD', nombre).encode('ascii', 'ignore').decode('utf-8')
+    nombre = nombre.lower()
+    nombre = re.sub(r"[ -]+", "_", nombre)
+    # Eliminar cualquier otro carácter no alfanumérico o _
+    nombre = re.sub(r"[^\w_]", "", nombre)
+
+    return nombre
+
+
+def estandarizar_columnas(df: pl.DataFrame) -> pl.DataFrame:
+    columnas_nuevas = [estandarizar_nombre_columna(col) for col in df.columns]
+    
+    return df.rename(dict(zip(df.columns, columnas_nuevas)))
