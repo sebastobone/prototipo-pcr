@@ -72,6 +72,7 @@ def cruzar_gastos_expedicion(
     en este cruce aparezcan todas las combinaciones de la prima con tipo_contabilidad.
     Evita duplicados usando prioridad de coincidencia para usar comodines correctamente
     """
+    # El cruce debe ser por fecha expedición póliza y no por fecha de contabilización
     return duckdb.sql(f"""
         -- prioridad de cruce por comodin para evitar duplicados
         WITH gastos_priorizados AS (
@@ -108,7 +109,7 @@ def cruzar_gastos_expedicion(
                 AND prod.ramo_sura = g.ramo_sura
                 AND (prod.canal = g.canal OR g.canal = '*')
                 AND (prod.producto = g.producto OR g.producto = '*')
-                AND prod.fecha_contabilizacion_recibo BETWEEN g.fecha_inicio AND g.fecha_fin
+                AND prod.fecha_expedicion_poliza BETWEEN g.fecha_inicio AND g.fecha_fin
         )
         SELECT * 
         FROM cruce
