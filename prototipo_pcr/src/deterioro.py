@@ -19,7 +19,7 @@ def calc_deterioro(
     # Solo aplica para la fecha de valoracion y para reaseguro
     base_det = output_devengo_fluc.filter(
         (pl.col('fecha_valoracion') == fe_valoracion) & 
-        (pl.col('tipo_negocio').is_in(['cedido', 'retrocedido']))
+        (pl.col('tipo_negocio').is_in(['mantenido', 'retrocedido']))
     )
 
     # Cruza probabilidad de default PD vigente por reasegurador
@@ -38,7 +38,8 @@ def calc_deterioro(
                     pd.fecha_inicio_vigencia AND 
                         COALESCE(pd.fecha_fin_vigencia, '3000-12-31')
             LEFT JOIN riesgo_credito as pd_ant
-                ON pcr.fecha_valoracion_anterior BETWEEN 
+                ON pcr.nit_reasegurador = pd_ant.nit_reasegurador
+                AND pcr.fecha_valoracion_anterior BETWEEN 
                     pd_ant.fecha_inicio_vigencia AND 
                         COALESCE(pd_ant.fecha_fin_vigencia, '3000-12-31')
         """
@@ -47,6 +48,8 @@ def calc_deterioro(
         (pl.col('prob_incumplimiento_actual') - pl.col('prob_incumplimiento_anterior'))
         .alias('cambio_prob_incumplimiento')
     )
+    deterioro_pcr.write_clipboard()
+    print(output_devengo_fluc.shape, base_det.shape, deterioro_pcr.shape)
 
     # calculo de movimientos de deterioro
     # se constituye deterioro si la probabilidad de default aumenta
@@ -64,7 +67,7 @@ def calc_deterioro(
     # la parte a la cual no le aplica el deterioro tendra NA en las columnas creadas
     base_resto = output_devengo_fluc.filter(
         ~((pl.col('fecha_valoracion') == fe_valoracion) & 
-        (pl.col('tipo_negocio').is_in(['cedido', 'retrocedido'])))
+        (pl.col('tipo_negocio').is_in(['mantenido', 'retrocedido'])))
     ).with_columns([
         # crea las columnas de deterioro con nulos para poder combinar
         pl.lit(None).cast(pl.Float64).alias(det_col)
@@ -76,5 +79,6 @@ def calc_deterioro(
             'liberacion_deterioro', 
             ]
     ])
+    print(output_devengo_fluc.shape, base_det.shape, base_resto.shape, deterioro_pcr.shape)
 
     return base_resto.vstack(deterioro_pcr)
