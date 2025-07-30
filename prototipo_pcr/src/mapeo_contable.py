@@ -17,6 +17,20 @@ import duckdb
 # Componente:
 # Tipo_Movimiento: si es transicion cambiarle el nombre al saldo
 
+map_campos_bt = {
+    'tipo_contabilidad': 'tipo_contabilidad',
+    'compania': 'compania',
+    'tipo_seguro': 'tipo_seguro',
+    'naturaleza': 'naturaleza',
+    'tipo_negocio': 'tipo_negocio',
+    'tipo_reaseguro': 'tipo_reaseguro',
+    'tipo_reasegurador': 'tipo_reasegurador',
+    'componente': 'concepto',
+    'tipo_movimiento': 'tipo_movimiento',
+    'anio_liberacion': 'indicativo_periodo_movimiento',
+    'es_transicion': 'transicion',
+}
+
 
 def asignar_tipo_seguro(base:pl.DataFrame, tipo_seg:pl.DataFrame) -> pl.DataFrame:
     """
@@ -37,26 +51,31 @@ def asignar_tipo_seguro(base:pl.DataFrame, tipo_seg:pl.DataFrame) -> pl.DataFram
     ).pl()
 
 
-def cruzar_diccionario_bt(out_devengo_fluct:pl.DataFrame, mapeo_bt:pl.DataFrame) ->pl.DataFrame:
+def cruzar_bt(
+    out_devengo_fluct:pl.DataFrame, 
+    relacion_bt:pl.DataFrame
+    ) ->pl.DataFrame:
     """
     Cruza output de devengo con la tabla de bts
     """
-    return duckdb.sql(
-        """
-        SELECT
-            base.*
-            , bt.descripcion AS descripcion_bt
-            , bt.bt AS bt
-        FROM out_devengo_fluct as base
-        INNER JOIN mapeo_bt AS bt
-            ON base.tipo_contabilidad = bt.tipo_contabilidad
-            AND base.tipo_insumo = bt.tipo_insumo
-            AND base.tipo_contrato = bt.tipo_contrato
-            AND base.tipo_movimiento = bt.tipo_movimiento
-            AND base.anio_liberacion = bt.anio_liberacion
-            AND base.transicion = bt.transicion
-        """
-    ).pl()
+
+    #     """
+    #     SELECT
+    #         base.*
+    #         , bt.descripcion AS descripcion_bt
+    #         , bt.bt AS bt
+    #     FROM out_devengo_fluct as base
+    #     INNER JOIN mapeo_bt AS bt
+    #         ON base.tipo_contabilidad = bt.tipo_contabilidad
+    #         AND base.tipo_insumo = bt.tipo_insumo
+    #         AND base.tipo_contrato = bt.tipo_contrato
+    #         AND base.tipo_movimiento = bt.tipo_movimiento
+    #         AND base.anio_liberacion = bt.anio_liberacion
+    #         AND base.transicion = bt.transicion
+    #     """
+    # ).pl()
+
+    pass
 
 
 def pivotear_output(
@@ -108,9 +127,32 @@ def add_registros_dac(out_contable:pl.DataFrame) -> pl.DataFrame:
         (pl.col('tipo_contabilidad') == 'ifrs4')
     ).with_columns([
         pl.lit('ajuste_dac_cedido').alias('tipo_insumo'),
+        pl.lit('ajuste_dac_') + pl.col('concepto').str.split('_')[-1]
         (pl.col('valor') * -1 ).alias('valor')
     ])
     return pl.concat([out_contable, dac_rea])
+
+
+def cruzar_campos_sabana(
+    out_det_fluc:pl.DataFrame,
+    tabla_nomenclatura:pl.DataFrame,
+    tabla_componente:pl.DataFrame
+    ) -> pl.DataFrame:
+
+    duckdb.register('base_output', out_det_fluc)
+    duckdb.register('nomen', tabla_nomenclatura)
+    duckdb.register('componente', tabla_componente)
+
+    output_listo = duckdb.sql(
+        """
+        SELECT 
+            bout.*,
+            comp.concepto_cd,
+            comp.clasificacion_adicional_cd,
+            nomen
+        """
+    ).pl()
+    pass
 
 
 def gen_output_contable(
@@ -139,5 +181,5 @@ def gen_output_contable(
         .pipe(asignar_tipo_seguro, tabla_tipo_seg)
         .pipe(pivotear_output, params.COLUMNAS_CALCULO)
         .pipe(add_registros_dac)
-        .pipe(cruzar_diccionario_bt, tabla_mapeo_bt)
+        .pipe(cruzar_bt, tabla_mapeo_bt)
     )
