@@ -48,8 +48,6 @@ def calc_deterioro(
         (pl.col('prob_incumplimiento_actual') - pl.col('prob_incumplimiento_anterior'))
         .alias('cambio_prob_incumplimiento')
     )
-    deterioro_pcr.write_clipboard()
-    print(output_devengo_fluc.shape, base_det.shape, deterioro_pcr.shape)
 
     # calculo de movimientos de deterioro
     # se constituye deterioro si la probabilidad de default aumenta
@@ -79,6 +77,5 @@ def calc_deterioro(
             'liberacion_deterioro', 
             ]
     ])
-    print(output_devengo_fluc.shape, base_det.shape, base_resto.shape, deterioro_pcr.shape)
 
     return base_resto.vstack(deterioro_pcr)
