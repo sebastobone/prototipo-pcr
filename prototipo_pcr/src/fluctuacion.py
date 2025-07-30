@@ -23,10 +23,9 @@ def calc_fluctuacion(data_devengo:pl.DataFrame, tasas_cambio:pl.DataFrame) -> pl
     es_mes_inicio = aux_tools.yyyymm(pl.col('fecha_constitucion')) == aux_tools.yyyymm(pl.col('fecha_valoracion'))
     delta_tc = pl.when(es_mes_inicio).then(delta_tc_bautizo).otherwise(delta_tc_mensual)
 
-    data_devengo_mext = data_devengo_mext.with_columns(
-        # define fecha cierre anterior para el delta
-        pl.col('fecha_valoracion').dt.offset_by('-1mo').alias('fecha_valoracion_anterior')
-    ).pipe(cruces.cruzar_tasas_cambio, tasas_cambio, liquidacion=False).with_columns(
+    data_devengo_mext = data_devengo_mext.pipe(
+        cruces.cruzar_tasas_cambio, tasas_cambio, liquidacion=False
+    ).with_columns(
         (pl.col('saldo') * delta_tc)
         .alias('fluctuacion_constitucion')
     ).with_columns(

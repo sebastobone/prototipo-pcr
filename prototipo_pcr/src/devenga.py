@@ -277,6 +277,9 @@ def devengar(input_deveng:pl.DataFrame, fe_valoracion:dt.date) -> pl.DataFrame:
     ).with_columns(
         # por defecto los mov se calculan para el periodo desde el inicio del mes de la fe valoracion
         pl.col('fecha_valoracion').dt.month_start().alias('fecha_inicio_periodo')
+    ).with_columns(
+        # define fecha cierre anterior para el delta
+        pl.col('fecha_valoracion').dt.offset_by('-1mo').alias('fecha_valoracion_anterior')
     )
     # define si aplica devengo de costo contrato
     aplica_costo_contrato = pl.col('tipo_insumo') == 'costo_contrato_rea_noprop'
