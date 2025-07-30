@@ -273,6 +273,40 @@ def prep_input_comi_rea (
     return input_comi_rea
 
 
+# Prepara el insumo de onerosidad
+def prep_input_onerosidad(
+        onerosidad_df: pl.DataFrame,
+        param_contabilidad: pl.DataFrame,
+        fe_valoracion: dt.date
+    ) -> pl.DataFrame:
+
+    # realiza los cruces base entre registros de onerosidad y parametros
+    input_onerosidad = onerosidad_df.filter(
+        pl.col('fecha_operacion') <= fe_valoracion
+    ).pipe(
+        cruces.cruzar_param_contabilidad, param_contabilidad
+    ).with_columns(
+        fecha_inicio_vigencia_recibo=pl.col("fecha_operacion"),
+        fecha_fin_vigencia_recibo=pl.col("fecha_fin_vigencia_poliza"),
+        fecha_inicio_vigencia_cobertura=pl.col("fecha_operacion"),
+        fecha_fin_vigencia_cobertura=pl.col("fecha_fin_vigencia_poliza")
+    ).with_columns(
+        fe_ini_vig_nivel.alias("fecha_inicio_vigencia")
+    ).with_columns(
+        # la fecha de constitucion de reserva es la de la operacion que
+        # afecta la onerosidad
+        pl.col("fecha_operacion").alias("fecha_constitucion")
+    ).with_columns(
+        pl.max_horizontal([pl.col("fecha_constitucion"), fe_ini_vig_nivel]).alias("fecha_inicio_devengo")
+    ).with_columns(
+        fe_fin_vig_nivel.alias("fecha_fin_devengo")
+    ).with_columns(
+        pl.col("valor_onerosidad").alias("valor_base_devengo")
+    )
+
+    return input_onerosidad
+
+
 def cruzar_costo_seguim (
         costo_contrato:pl.DataFrame,
         seguimiento_costo:pl.DataFrame,
@@ -286,6 +320,8 @@ def cruzar_costo_seguim (
     costo_contrato = costo_contrato.filter(
         pl.col('fecha_contabilizacion_recibo') <= fe_valoracion
     )
+    duckdb.register("costo_contrato", costo_contrato.clone())
+    duckdb.register("seguimiento_costo", seguimiento_costo.clone())
     return duckdb.sql(
         f"""
         SELECT 
@@ -329,7 +365,7 @@ def prep_input_costo_con (
         fe_inicio_devengo = fe_ini_vig_nivel
 
     # realiza los cruces base entre cesion del reaseguro y parametros
-    input_costo_con= costo_contrato.filter(
+    input_costo_con= costo_contrato.clone().filter(
         pl.col('fecha_contabilizacion_recibo') <= fe_valoracion
     ).pipe(
         cruces.cruzar_param_contabilidad, param_contabilidad).pipe(

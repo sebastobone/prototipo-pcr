@@ -29,6 +29,9 @@ HOJA_COMISION_REA = "comision_rea"
 HOJA_COSTO_CONTRATO = "costo_rea_noprop"
 HOJA_SEGUIMIENTO_REA = 'seguimiento_rea_noprop'
 
+# Insumo de onerosidad
+HOJA_ONEROSIDAD = "onerosidad"
+
 
 # Fechas relevantes para cada ejecución
 FECHA_VALORACION = date(2024, 12, 31)
