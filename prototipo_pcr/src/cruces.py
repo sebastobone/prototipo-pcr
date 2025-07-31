@@ -39,6 +39,7 @@ def cruzar_descuento(
 ) -> pl.DataFrame:
     # usa sufijo de rea para que cruce el dscto con el recibo de rea y no del directo
     suffix_rea = "_rea" if reaseguro else ""
+    duckdb.register('produccion', produccion)
     return duckdb.sql(
         f"""
         SELECT

@@ -7,6 +7,7 @@ import src.parametros as p
 import polars as pl
 import duckdb
 import datetime as dt
+import src.aux_tools as aux_tools
 
 
 
@@ -49,9 +50,12 @@ def calc_deterioro(
         .alias('cambio_prob_incumplimiento')
     )
 
+    # cuando es el primer mes de reserva usa toda la probabilidad actual
+    es_mes_inicio = aux_tools.yyyymm(pl.col('fecha_constitucion')) == aux_tools.yyyymm(pl.col('fecha_valoracion'))
+    delta_pd = pl.when(es_mes_inicio).then(pl.col('prob_incumplimiento_actual')).otherwise('cambio_prob_incumplimiento')
     # calculo de movimientos de deterioro
     # se constituye deterioro si la probabilidad de default aumenta
-    constitucion_det = pl.col('saldo') * pl.max_horizontal(pl.col('cambio_prob_incumplimiento'), pl.lit(0.0))
+    constitucion_det = pl.col('saldo') * pl.max_horizontal(delta_pd, pl.lit(0.0))
     # la liberación tiene dos partes
     # se libera porque el saldo cambia
     lib_cambio_saldo = pl.min_horizontal(pl.col('saldo') - pl.col('saldo_anterior'), pl.lit(0.0)) * pl.col('prob_incumplimiento_anterior')
