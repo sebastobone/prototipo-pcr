@@ -1,12 +1,3 @@
-"""
-Módulo que se encarga de la traducción del output del cálculo de la PCR a las BTs para el motor de posteos contables
-- El output del devengo, fluctuación y deterioro es en formato de columnas
-- Organiza el output en filas por tipo de movimiento y lo expresa en moneda del documento y local
-- Asigna tipo_seguro según la tabla parametrizada
-- Asigna código I o E según nacionalidad del reasegurador
-- Cruza cada movimiento del output con tabla de mapeo de BTs contables
-"""
-
 import polars as pl
 import src.parametros as params
 import src.cruces as cruces
@@ -30,6 +21,15 @@ map_campos_bt = {
     'anio_liberacion': 'indicativo_periodo_movimiento',
     'es_transicion': 'transicion',
 }
+
+
+def asignar_campos_sabana(
+        output_det: pl.DataFrame,
+        tabla_concepto: pl.DataFrame,
+        tabla_tipo_rea: pl.DataFrame,
+        tabla_tipo_seg:pl.DataFrame,
+    ):
+    pass
 
 
 def asignar_tipo_seguro(base:pl.DataFrame, tipo_seg:pl.DataFrame) -> pl.DataFrame:
