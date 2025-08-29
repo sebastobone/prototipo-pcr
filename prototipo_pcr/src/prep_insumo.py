@@ -101,7 +101,7 @@ def prep_input_gasto_directo(
     ) -> pl.DataFrame:
 
     mapping_gastos = {
-        "expedicion_cos": "gasto_comi_directo",
+        "expedicion_comisiones": "gasto_comi_directo",
         "expedicion_otros": "gasto_otro_directo",
         "terremoto_factor_pprr": "terremoto_factor_pprr",
         "terremoto_nota_tecnica": "terremoto_nota_tecnica",

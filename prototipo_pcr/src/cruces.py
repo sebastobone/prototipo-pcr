@@ -39,7 +39,6 @@ def cruzar_descuento(
 ) -> pl.DataFrame:
     # usa sufijo de rea para que cruce el dscto con el recibo de rea y no del directo
     suffix_rea = "_rea" if reaseguro else ""
-    duckdb.register('produccion', produccion)
     return duckdb.sql(
         f"""
         SELECT
@@ -74,7 +73,7 @@ def cruzar_gastos_expedicion(
     Evita duplicados usando prioridad de coincidencia para usar comodines correctamente
     """
     # El cruce debe ser por fecha expedición póliza y no por fecha de contabilización
-    return duckdb.sql(f"""
+    return duckdb.sql("""
         -- prioridad de cruce por comodin para evitar duplicados
         WITH gastos_priorizados AS (
             SELECT
@@ -97,9 +96,11 @@ def cruzar_gastos_expedicion(
                     PARTITION BY 
                         prod.tipo_op,
                         prod.tipo_insumo,
-                        prod.canal,
                         prod.poliza,
+                        prod.poliza_certificado,
                         prod.recibo,
+                        prod.amparo,
+                        g.tipo_gasto,
                         g.tipo_contabilidad
                     ORDER BY g.prioridad_match
                 ) AS rn
