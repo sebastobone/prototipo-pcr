@@ -1,54 +1,13 @@
 import polars as pl
 import src.parametros as params
-import src.cruces as cruces
 import duckdb
-
-# Tipo_reserva = PCR CP para todos
-# Columnas a Filas
-# Componente:
-# Tipo_Movimiento: si es transicion cambiarle el nombre al saldo
-
-map_campos_bt = {
-    "tipo_contabilidad": "tipo_contabilidad",
-    "compania": "compania",
-    "tipo_seguro": "tipo_seguro",
-    "naturaleza": "naturaleza",
-    "tipo_negocio": "tipo_negocio",
-    "tipo_reaseguro": "tipo_reaseguro",
-    "tipo_reasegurador": "tipo_reasegurador",
-    "componente": "concepto",
-    "tipo_movimiento": "tipo_movimiento",
-    "anio_liberacion": "indicativo_periodo_movimiento",
-    "es_transicion": "transicion",
-}
-
-
-def asignar_campos_sabana(
-    output_det: pl.DataFrame,
-    tabla_concepto: pl.DataFrame,
-    tabla_tipo_rea: pl.DataFrame,
-    tabla_tipo_seg: pl.DataFrame,
-):
-    pass
 
 
 def asignar_tipo_seguro(base: pl.DataFrame, tipo_seg: pl.DataFrame) -> pl.DataFrame:
     """
     Asigna la clasificacion del ramo por tipo de seguro al output contable
     """
-    duckdb.register("base", base)
-    duckdb.register("tipo_seg", tipo_seg)
-    return duckdb.sql(
-        """
-        SELECT
-            base.*
-            ,tseg.tipo_seguro
-            ,tseg.codigo_tipo_seguro
-        FROM base
-        LEFT JOIN tipo_seg as tseg
-            ON base.ramo_sura = tseg.ramo
-        """
-    ).pl()
+    return base.join(tipo_seg.rename({"ramo": "ramo_sura"}), on="ramo_sura", how="left")
 
 
 def cruzar_bt(
@@ -57,24 +16,33 @@ def cruzar_bt(
     """
     Cruza output de devengo con la tabla de bts
     """
-
-    #     """
-    #     SELECT
-    #         base.*
-    #         , bt.descripcion AS descripcion_bt
-    #         , bt.bt AS bt
-    #     FROM out_devengo_fluct as base
-    #     INNER JOIN mapeo_bt AS bt
-    #         ON base.tipo_contabilidad = bt.tipo_contabilidad
-    #         AND base.tipo_insumo = bt.tipo_insumo
-    #         AND base.tipo_contrato = bt.tipo_contrato
-    #         AND base.tipo_movimiento = bt.tipo_movimiento
-    #         AND base.anio_liberacion = bt.anio_liberacion
-    #         AND base.transicion = bt.transicion
-    #     """
-    # ).pl()
-
-    pass
+    print("Registros antes del cruce BT: ", out_devengo_fluct.shape[0])
+    con = duckdb.connect(database=":memory:")  # isolate to memory
+    result = duckdb.sql(
+        """
+        SELECT
+            out_devengo_fluct.*,
+            relacion_bt.naturaleza,
+            relacion_bt.bt,
+            relacion_bt.descripcion_bt,
+        FROM out_devengo_fluct
+        LEFT JOIN relacion_bt
+            ON out_devengo_fluct.tipo_movimiento_codigo = relacion_bt.tipo_movimiento
+            AND out_devengo_fluct.indicativo_periodo_movimiento_codigo = relacion_bt.indicativo_periodo_movimiento
+            AND out_devengo_fluct.concepto_codigo = relacion_bt.concepto
+            AND out_devengo_fluct.clasificacion_adicional_codigo = relacion_bt.clasificacion_adicional
+            AND out_devengo_fluct.tipo_negocio_codigo = relacion_bt.tipo_negocio
+            AND out_devengo_fluct.tipo_reaseguro_codigo = relacion_bt.tipo_reaseguro
+            AND out_devengo_fluct.tipo_reasegurador_codigo = relacion_bt.tipo_reasegurador
+            AND out_devengo_fluct.tipo_seguro_codigo = relacion_bt.tipo_seguro
+            AND out_devengo_fluct.compania_codigo = relacion_bt.compania
+            AND out_devengo_fluct.tipo_contabilidad_codigo = relacion_bt.tipo_contabilidad
+            AND out_devengo_fluct.tipo_reserva = relacion_bt.tipo_reserva
+        """
+    ).pl()
+    con.close()
+    print("Registros despues del cruce BT: ", result.shape[0])
+    return result
 
 
 def pivotear_output(
@@ -87,14 +55,7 @@ def pivotear_output(
         col for col in out_deterioro_fluct.columns if col not in cols_calculadas
     ]
 
-    # Validar que existe la tasa de cambio para expresar valores en pesos
-    if "tasa_cambio_fecha_valoracion" in out_deterioro_fluct.columns:
-        multiplicador = pl.col("tasa_cambio_fecha_valoracion")
-    else:
-        print(
-            "[WARN] La columna 'tasa_cambio_fecha_valoracion' no está presente, se asumirá 1."
-        )
-        multiplicador = pl.lit(1.0)
+    multiplicador = pl.col("tasa_cambio_fecha_valoracion")
 
     return (
         out_deterioro_fluct
@@ -105,18 +66,28 @@ def pivotear_output(
             value_name="valor_md",
         )
         # convierte valores validos a pesos
-        .filter(pl.col("valor_md").is_not_null())
+        .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0))
         .with_columns((multiplicador * pl.col("valor_md")).alias("valor_ml"))
-        # Reasigna el componente a deterioro cuando corresponde
+        # El deterioro esta asignado como prima en el concepto de BTs
         .with_columns(
             pl.when(
                 pl.col("tipo_movimiento").is_in(
                     ["constitucion_deterioro", "liberacion_deterioro"]
                 )
             )
-            .then(pl.lit("deterioro"))
+            .then(pl.lit("prima"))
             .otherwise(pl.col("componente"))
             .alias("componente")
+        )
+        .with_columns(
+            pl.when(
+                pl.col("tipo_movimiento").is_in(
+                    ["fluctuacion_constitucion", "fluctuacion_liberacion"]
+                )
+            )
+            .then(pl.lit("fluctuacion"))
+            .otherwise(pl.col("tipo_movimiento"))
+            .alias("tipo_movimiento")
         )
     )
 
@@ -126,68 +97,92 @@ def add_registros_dac(out_contable: pl.DataFrame) -> pl.DataFrame:
     Duplica las filas del gasto aplicado al reaseguro proporcional pero con el signo contrario
     esto para incluir el componente de ajuste del DAC cedido. Solo aplica en IFRS 4
     """
-    dac_rea = out_contable.filter(
-        (pl.col("tipo_insumo").is_in(["gasto_comi_rea_prop", "gasto_otro_rea_prop"]))
-        & (pl.col("tipo_contabilidad") == "ifrs4")
-    ).with_columns(
-        [
-            pl.lit("ajuste_dac_cedido").alias("tipo_insumo"),
-            pl.lit("ajuste_dac_")
-            + pl.col("concepto")
-            .str.split("_")[-1](pl.col("valor") * -1)
-            .alias("valor"),
-        ]
+    dac_rea = (
+        out_contable.filter(
+            (
+                pl.col("tipo_insumo").is_in(
+                    ["gasto_comi_rea_prop", "gasto_otro_rea_prop"]
+                )
+            )
+            & (pl.col("tipo_contabilidad") == "ifrs4")
+        )
+        .with_columns(pl.lit("ajuste_dac_cedido").alias("tipo_insumo"))
+        .with_columns(
+            [(pl.col(col) * -1).alias(col) for col in ["valor_md", "valor_ml"]]
+        )
     )
-    return pl.concat([out_contable, dac_rea])
+    return out_contable.vstack(dac_rea)
 
 
-def cruzar_campos_sabana(
+def homologar_campos(
     out_det_fluc: pl.DataFrame,
     tabla_nomenclatura: pl.DataFrame,
-    tabla_componente: pl.DataFrame,
 ) -> pl.DataFrame:
-    duckdb.register("base_output", out_det_fluc)
-    duckdb.register("nomen", tabla_nomenclatura)
-    duckdb.register("componente", tabla_componente)
+    tipo_movimiento = obtener_homologacion(
+        tabla_nomenclatura, "tipo_movimiento", "tipo_movimiento"
+    )
+    periodo_movimiento = obtener_homologacion(
+        tabla_nomenclatura, "indicativo_periodo_movimiento", "anio_liberacion"
+    )
+    concepto = obtener_homologacion(tabla_nomenclatura, "concepto", "componente")
+    clasificacion_adicional = obtener_homologacion(
+        tabla_nomenclatura, "clasificacion_adicional", "clasificacion_adicional"
+    )
+    tipo_negocio = obtener_homologacion(
+        tabla_nomenclatura, "tipo_negocio", "tipo_negocio"
+    )
+    tipo_reaseguro = obtener_homologacion(
+        tabla_nomenclatura, "tipo_reaseguro", "tipo_contrato"
+    )
+    tipo_reasegurador = obtener_homologacion(
+        tabla_nomenclatura, "tipo_reasegurador", "tipo_reasegurador"
+    )
+    compania = obtener_homologacion(tabla_nomenclatura, "compania", "compania")
+    tipo_contabilidad = obtener_homologacion(
+        tabla_nomenclatura, "tipo_contabilidad", "tipo_contabilidad"
+    )
+    
 
-    output_listo = duckdb.sql(
-        """
-        SELECT 
-            bout.*,
-            comp.concepto_cd,
-            comp.clasificacion_adicional_cd,
-            nomen
-        """
-    ).pl()
-    pass
+    df = (
+        out_det_fluc.join(tipo_movimiento, on="tipo_movimiento", how="left")
+        .join(periodo_movimiento, on="anio_liberacion", how="left")
+        .join(concepto, on="componente", how="left")
+        .join(clasificacion_adicional, on="clasificacion_adicional", how="left")
+        .join(tipo_negocio, on="tipo_negocio", how="left")
+        .join(tipo_reaseguro, "tipo_contrato", how="left")
+        .with_columns(pl.col("tipo_reasegurador").fill_null("no_aplica"))
+        .join(tipo_reasegurador, on="tipo_reasegurador", how="left")
+        .join(compania, on="compania", how="left")
+        .join(tipo_contabilidad, on="tipo_contabilidad", how="left")
+        .with_columns(tipo_reserva=pl.lit("PCR_CP"))
+    )
+
+    return df
+
+
+def obtener_homologacion(
+    tabla_nomenclatura: pl.DataFrame, campo: str, nombre_prototipo: str
+) -> pl.DataFrame:
+    return tabla_nomenclatura.filter(pl.col("campo") == campo).select(
+        pl.col("prototipo").alias(nombre_prototipo),
+        pl.col("codigo").alias(f"{campo}_codigo"),
+    )
 
 
 def gen_output_contable(
     out_det_fluc: pl.DataFrame,
     tabla_mapeo_bt: pl.DataFrame,
     tabla_tipo_seg: pl.DataFrame,
+    tabla_nomenclatura: pl.DataFrame,
 ) -> pl.DataFrame:
     """
     Se encarga de aplicar los pasos para obtener el output segun requerimientos contables
     """
 
     return (
-        out_det_fluc.with_columns(
-            [
-                pl.when(pl.col("tipo_seguro") == "directo")
-                .then(pl.lit("D"))
-                .otherwise(pl.lit("R"))
-                .alias("naturaleza"),
-                pl.when(pl.col("tipo_seguro") == "reaseguro_proporcional")
-                .then(pl.lit("PP"))
-                .when(pl.col("tipo_seguro") == "reaseguro__no_proporcional")
-                .then(pl.lit("NP"))
-                .otherwise(pl.lit("No aplica"))
-                .alias("tipo_reaseguro"),
-            ]
-        )
-        .pipe(asignar_tipo_seguro, tabla_tipo_seg)
+        out_det_fluc.pipe(asignar_tipo_seguro, tabla_tipo_seg)
         .pipe(pivotear_output, params.COLUMNAS_CALCULO)
         .pipe(add_registros_dac)
+        .pipe(homologar_campos, tabla_nomenclatura)
         .pipe(cruzar_bt, tabla_mapeo_bt)
     )

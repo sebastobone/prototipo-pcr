@@ -23,6 +23,7 @@ def cruzar_param_contabilidad(
              b.* {exclude}
             ,param_cont.tipo_contabilidad as tipo_contabilidad
             ,param_cont.componente
+            ,param_cont.clasificacion_adicional
             ,param_cont.tipo_contrato
             ,param_cont.nivel_detalle
             ,param_cont.signo_constitucion

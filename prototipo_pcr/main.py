@@ -30,8 +30,11 @@ def run_pcr(fe_valoracion):
     tasa_cambio = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_MONEDA)
     descuentos = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_DESCUENTO)
     # El diccionario o tabla de correspondencia de outputs con entradas contables
-    # input_map_bts = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_MAPEO_BTS)
-    # input_tipo_seguro = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_TIPO_SEGURO)
+    input_map_bts = pl.read_excel(p.RUTA_REL_BT, infer_schema_length=2000).filter(
+        ~pl.col("clasificacion_adicional").is_in(["MAT", "REC"])
+    )
+    input_tipo_seguro = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_TIPO_SEGURO)
+    tabla_nomenclatura = pl.read_excel(p.RUTA_NOMENCLATURA, sheet_name="V2")
     # Insumos de recibos contabilizados en SAP
     produccion_dir = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_PDN)
     cesion_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CESION)
@@ -90,18 +93,17 @@ def run_pcr(fe_valoracion):
     input_consolidado = pl.concat(
         aux_tools.alinear_esquemas(insumos_devengo), how="diagonal"
     )
-    input_consolidado.write_clipboard()
     # devuelve la base ya devengada, con las columnas de movimientos saldos y de fluctuación
     output_devengo_fluct = fluc.calc_fluctuacion(
         devg.devengar(input_consolidado, FECHA_VALORACION), tasa_cambio
     )
     output_devengo_fluct.write_excel(p.RUTA_SALIDA_DEVENGO)
     # convierte a output contable
-    # output_contable = mapcont.gen_output_contable(
-    #     output_devengo_fluct, input_map_bts, input_tipo_seguro
-    # )
-    # output_contable.write_excel(p.RUTA_SALIDA_CONTABLE)
-    output_contable = pl.DataFrame()
+    output_contable = mapcont.gen_output_contable(
+        output_devengo_fluct, input_map_bts, input_tipo_seguro, tabla_nomenclatura
+    )
+    output_contable.write_clipboard()
+    output_contable.write_excel(p.RUTA_SALIDA_CONTABLE)
 
     return output_devengo_fluct, output_contable
 

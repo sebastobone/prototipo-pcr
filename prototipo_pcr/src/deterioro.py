@@ -2,8 +2,6 @@
 Módulo de cálculo del deterioro del activo por reaseguro
 """
 
-import src.cruces as cruces
-import src.parametros as p
 import polars as pl
 import duckdb
 import datetime as dt
@@ -22,8 +20,6 @@ def calc_deterioro(
     )
 
     # Cruza probabilidad de default PD vigente por reasegurador
-    duckdb.register("base_det", base_det)
-    duckdb.register("riesgo_credito", riesgo_credito)
     deterioro_pcr = (
         duckdb.sql(
             """

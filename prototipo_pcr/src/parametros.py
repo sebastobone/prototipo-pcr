@@ -11,6 +11,7 @@ SKIP_ROWS = 1
 # Ubicación de los insumos relativa al script de ejecución
 RUTA_INSUMOS = base_dir.parent / "inputs" / "insumos.xlsx"
 RUTA_REL_BT = base_dir.parent / "inputs" / "relacion_bt.xlsx"
+RUTA_NOMENCLATURA = base_dir.parent / "inputs" / "nomenclatura.xlsx"
 
 # Insumos transversales
 HOJA_PARAMETROS_CONTAB = "param_contabilidad"
