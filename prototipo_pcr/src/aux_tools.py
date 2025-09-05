@@ -16,7 +16,9 @@ def get_fecha_nivel(columna_nivel: str, niveles: list[str], prefijo: str) -> pl.
     Ej: si nivel = 'recibo', selecciona 'fecha_inicio_vigencia_recibo'.
     """
     # Inicializa con la primera condición
-    expr = pl.when(pl.col(columna_nivel) == niveles[0]).then(pl.col(f"{prefijo}_{niveles[0]}"))
+    expr = pl.when(pl.col(columna_nivel) == niveles[0]).then(
+        pl.col(f"{prefijo}_{niveles[0]}")
+    )
 
     # Agrega el resto con .otherwise(pl.when(...).then(...))
     for nivel in niveles[1:]:
@@ -28,7 +30,7 @@ def get_fecha_nivel(columna_nivel: str, niveles: list[str], prefijo: str) -> pl.
     return expr
 
 
-# Funcion que cambia el formato de fecha a AAAAMM 
+# Funcion que cambia el formato de fecha a AAAAMM
 def yyyymm(col: pl.Expr) -> pl.Expr:
     return col.dt.year() * 100 + col.dt.month()
 
@@ -47,6 +49,7 @@ def mes_anterior(yyyymm: int) -> int:
         return (anio - 1) * 100 + 12
     else:
         return anio * 100 + (mes - 1)
+
 
 # Funcion que calcula la diferencia entre dos fechas en días
 def calcular_dias_diferencia(
@@ -81,9 +84,9 @@ def alinear_esquemas(dataframes: list[pl.DataFrame]) -> list[pl.DataFrame]:
         for col in cols_faltantes:
             df = df.with_columns(pl.lit(None).cast(columnas_union[col]).alias(col))
         # Asegurar tipos correctos
-        df = df.select([
-            pl.col(col).cast(columnas_union[col]) for col in columnas_union
-        ])
+        df = df.select(
+            [pl.col(col).cast(columnas_union[col]) for col in columnas_union]
+        )
         dataframes_ajustados.append(df)
 
     return dataframes_ajustados
@@ -91,7 +94,9 @@ def alinear_esquemas(dataframes: list[pl.DataFrame]) -> list[pl.DataFrame]:
 
 def estandarizar_nombre_columna(nombre):
     # Quita tildes
-    nombre = unicodedata.normalize('NFD', nombre).encode('ascii', 'ignore').decode('utf-8')
+    nombre = (
+        unicodedata.normalize("NFD", nombre).encode("ascii", "ignore").decode("utf-8")
+    )
     nombre = nombre.lower()
     nombre = re.sub(r"[ -]+", "_", nombre)
     # Eliminar cualquier otro carácter no alfanumérico o _
@@ -102,5 +107,5 @@ def estandarizar_nombre_columna(nombre):
 
 def estandarizar_columnas(df: pl.DataFrame) -> pl.DataFrame:
     columnas_nuevas = [estandarizar_nombre_columna(col) for col in df.columns]
-    
+
     return df.rename(dict(zip(df.columns, columnas_nuevas)))

@@ -6,12 +6,15 @@ import duckdb
 def cruzar_param_contabilidad(
     base: pl.DataFrame, param_contabilidad: pl.DataFrame
 ) -> pl.DataFrame:
-    
     # Si tipo cont viene en base, se eliminan combinaciones invalidas y se debe usar es la de param_cont
-    if 'tipo_contabilidad' in base.columns:
-        join_kind = "INNER"     # usa un inner join para conservar solo combinaciones válidas
+    if "tipo_contabilidad" in base.columns:
+        join_kind = (
+            "INNER"  # usa un inner join para conservar solo combinaciones válidas
+        )
         tipocont_key = "AND b.tipo_contabilidad = param_cont.tipo_contabilidad"
-        exclude = 'EXCLUDE (tipo_contabilidad)' # excluye tipo_contabilidad que trae la base
+        exclude = (
+            "EXCLUDE (tipo_contabilidad)"  # excluye tipo_contabilidad que trae la base
+        )
     else:
         join_kind, tipocont_key, exclude = "LEFT", "", ""
     return duckdb.sql(
@@ -116,8 +119,7 @@ def cruzar_gastos_expedicion(
         SELECT * 
         FROM cruce
         WHERE rn = 1
-    """
-    ).pl() #.unique()
+    """).pl()  # .unique()
 
 
 def cruzar_excepciones_50_50(
@@ -135,10 +137,9 @@ def cruzar_excepciones_50_50(
     exc_cols = [col for col in excepciones.columns if col != "candidato_devengo_50_50"]
     # Filtra excepciones: solo considera filas que no exigen columnas ausentes
     excepciones_filtradas = excepciones.filter(
-        pl.all_horizontal([
-            ((pl.col(col) == "*") | pl.lit(col in columnas_base))
-            for col in exc_cols
-        ])
+        pl.all_horizontal(
+            [((pl.col(col) == "*") | pl.lit(col in columnas_base)) for col in exc_cols]
+        )
     )
 
     # Itera sobre excepciones válidas
@@ -155,7 +156,7 @@ def cruzar_excepciones_50_50(
                     val = int(val)
                 elif col_dtype == pl.Utf8:
                     val = str(val)
-                condition &= (pl.col(col) == val)
+                condition &= pl.col(col) == val
 
         base = base.with_columns(
             pl.when(condition)
@@ -168,13 +169,12 @@ def cruzar_excepciones_50_50(
 
 
 def cruzar_tasas_cambio(
-        base: pl.DataFrame, 
-        tasas_cambio: pl.DataFrame,
-        val_anterior:bool=True,
-        bautizo:bool=True,
-        liquidacion:bool=True
-        ) -> pl.DataFrame:
-    
+    base: pl.DataFrame,
+    tasas_cambio: pl.DataFrame,
+    val_anterior: bool = True,
+    bautizo: bool = True,
+    liquidacion: bool = True,
+) -> pl.DataFrame:
     # Crea la parte opcional del query para cruzar otras tasas
     tasa_bool = [val_anterior, bautizo, liquidacion]
     tasa_col = [
@@ -189,9 +189,9 @@ def cruzar_tasas_cambio(
         """LEFT JOIN tasas_cambio AS tconst
             ON base.fecha_constitucion = tconst.fecha
             AND base.moneda = tconst.moneda_origen""",
-       """LEFT JOIN tasas_cambio AS tliquid
+        """LEFT JOIN tasas_cambio AS tliquid
            ON base.fecha_fin_devengo = tliquid.fecha
-           AND base.moneda = tliquid.moneda_origen"""
+           AND base.moneda = tliquid.moneda_origen""",
     ]
     cols_query, joins_query = "", ""
     for tb, tc, tj in zip(tasa_bool, tasa_col, tasa_join):
@@ -201,7 +201,7 @@ def cruzar_tasas_cambio(
 
     duckdb.register("base", base)
     duckdb.register("tasas_cambio", tasas_cambio)
-    
+
     return duckdb.sql(
         f"""
         SELECT
