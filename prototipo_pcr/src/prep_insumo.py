@@ -336,6 +336,7 @@ def prep_input_recup_onerosidad_pp(
     onerosidad_df: pl.DataFrame,
     cesion_rea_df: pl.DataFrame,
     param_contabilidad: pl.DataFrame,
+    excepciones_df: pl.DataFrame,
     fe_valoracion: dt.date,
 ) -> pl.DataFrame:
     # realiza los cruces base entre registros de onerosidad y parametros
@@ -361,6 +362,7 @@ def prep_input_recup_onerosidad_pp(
         .drop("tipo_negocio")
         .join(polizas_rea, on=["poliza", "compania", "ramo_sura"], how="inner")
         .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
+        .pipe(cruces.cruzar_excepciones_50_50, excepciones_df)
         .with_columns(
             fecha_inicio_vigencia_recibo=pl.col("fecha_operacion"),
             fecha_fin_vigencia_recibo=pl.col("fecha_fin_vigencia_poliza"),
@@ -397,11 +399,6 @@ def cruzar_costo_seguim(
     para la fecha de valoración de interés
     """
     fe_valoracion_str = fe_valoracion.strftime("%Y-%m-%d")
-    costo_contrato = costo_contrato.filter(
-        pl.col("fecha_contabilizacion_recibo") <= fe_valoracion
-    )
-    duckdb.register("costo_contrato", costo_contrato.clone())
-    duckdb.register("seguimiento_costo", seguimiento_costo.clone())
     return duckdb.sql(
         f"""
         SELECT 
@@ -451,8 +448,7 @@ def prep_input_costo_con(
 
     # realiza los cruces base entre cesion del reaseguro y parametros
     input_costo_con = (
-        costo_contrato.clone()
-        .filter(pl.col("fecha_contabilizacion_recibo") <= fe_valoracion)
+        costo_contrato.filter(pl.col("fecha_contabilizacion_recibo") <= fe_valoracion)
         .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
         .pipe(cruces.cruzar_excepciones_50_50, excepciones_df)
         .pipe(
@@ -496,3 +492,75 @@ def prep_input_costo_con(
     )
 
     return input_costo_con
+
+
+def prep_input_recup_onerosidad_np(
+    recup_onerosidad_df: pl.DataFrame,
+    seguimiento_costo: pl.DataFrame,
+    param_contabilidad: pl.DataFrame,
+    excepciones_df: pl.DataFrame,
+    fe_valoracion: dt.date,
+) -> pl.DataFrame:
+    """
+    Asi como el insumo del costo de contrato, la recuperacion de onerosidad
+    por contratos no proporcionales se puede devengar de dos formas diferentes,
+    por la regla diaria o por el consumo del limite agregado del contrato.
+    En cada periodo, se usa el que resulte en una liberación porcentual mayor.
+    Por esto, la preparación del insumo requiere algunos pasos adicionales.
+    """
+
+    # si ya viene devengandose, se recalcula el devengamiento diario
+    if "saldo_anterior" in recup_onerosidad_df.columns:
+        base_devengo = pl.col(
+            "saldo_anterior"
+        )  # si es de un output anterior, ya viene abierto por reasegurador
+        fe_inicio_devengo = pl.lit(
+            fe_valoracion
+        ).dt.month_start()  # recalcula el devengo desde esta fecha
+    # si se procesa por primera vez el recibo, parte de la base inicial
+    else:
+        # si el costo de contrato viene totalizado en el recibo, se abre por reasegurador
+        base_devengo = pl.col("valor_recuperacion") * pl.col(
+            "porc_participacion_reasegurador"
+        )
+        fe_inicio_devengo = fe_ini_vig_nivel
+
+    return (
+        recup_onerosidad_df.with_columns(
+            fecha_inicio_vigencia_recibo=pl.col("fe_ini_vig_contrato_reaseguro"),
+            fecha_fin_vigencia_recibo=pl.col("fe_fin_vig_contrato_reaseguro"),
+            fecha_inicio_vigencia_cobertura=pl.col("fe_ini_vig_contrato_reaseguro"),
+            fecha_fin_vigencia_cobertura=pl.col("fe_fin_vig_contrato_reaseguro"),
+        )
+        .filter(pl.col("fecha_calculo_recuperacion") <= fe_valoracion)
+        .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
+        .pipe(cruces.cruzar_excepciones_50_50, excepciones_df)
+        .pipe(
+            # cruza con los datos de seguimiento del contrato
+            cruzar_costo_seguim,
+            seguimiento_costo,
+            fe_valoracion,
+        )
+        .with_columns(
+            # si hay que recalcular el devengo diario, usa un nuevo inicio de vigencia
+            fe_inicio_devengo.alias("fecha_inicio_vigencia")
+        )
+        .with_columns(
+            # se constituye siempre en la fecha del calculo de la recuperacion
+            pl.col("fecha_calculo_recuperacion").alias("fecha_constitucion")
+        )
+        .with_columns(
+            # se inicia a devengar en la fecha max entre constitucion o inicio cobertura rea
+            pl.max_horizontal([pl.col("fecha_constitucion"), fe_inicio_devengo]).alias(
+                "fecha_inicio_devengo"
+            )
+        )
+        .with_columns(
+            # el fin del devengo siempre es el fin de vigencia que cubre el recibo
+            fe_fin_vig_nivel.alias("fecha_fin_devengo")
+        )
+        .with_columns(
+            # los calculos deben estar abiertos por reasegurador (se garantiza en la condicion de arriba)
+            (base_devengo).alias("valor_base_devengo")
+        )
+    )

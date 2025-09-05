@@ -38,8 +38,9 @@ def run_pcr(fe_valoracion):
     comision_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_COMISION_REA)
     costo_contrato_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_COSTO_CONTRATO)
     seguimiento_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_SEGUIMIENTO_REA)
-    # Insumo de onerosidad cargado en SharePoint
+    # Insumos de onerosidad leidos desde el datalake
     onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
+    recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
@@ -75,7 +76,14 @@ def run_pcr(fe_valoracion):
             FECHA_VALORACION,
         ),
         prep_data.prep_input_recup_onerosidad_pp(
-            onerosidad, cesion_rea, param_contab, FECHA_VALORACION
+            onerosidad, cesion_rea, param_contab, excepciones, FECHA_VALORACION
+        ),
+        prep_data.prep_input_recup_onerosidad_np(
+            recup_onerosidad,
+            seguimiento_rea,
+            param_contab,
+            excepciones,
+            FECHA_VALORACION,
         ),
     ]
 

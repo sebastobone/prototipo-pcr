@@ -29,8 +29,9 @@ HOJA_COMISION_REA = "comision_rea"
 HOJA_COSTO_CONTRATO = "costo_rea_noprop"
 HOJA_SEGUIMIENTO_REA = "seguimiento_rea_noprop"
 
-# Insumo de onerosidad
+# Insumos de onerosidad
 HOJA_ONEROSIDAD = "onerosidad"
+HOJA_RECUP_ONEROSIDAD = "recup_onerosidad"
 
 
 # Fechas relevantes para cada ejecución
