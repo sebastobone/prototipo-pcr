@@ -92,28 +92,6 @@ def pivotear_output(
     )
 
 
-def add_registros_dac(out_contable: pl.DataFrame) -> pl.DataFrame:
-    """
-    Duplica las filas del gasto aplicado al reaseguro proporcional pero con el signo contrario
-    esto para incluir el componente de ajuste del DAC cedido. Solo aplica en IFRS 4
-    """
-    dac_rea = (
-        out_contable.filter(
-            (
-                pl.col("tipo_insumo").is_in(
-                    ["gasto_comi_rea_prop", "gasto_otro_rea_prop"]
-                )
-            )
-            & (pl.col("tipo_contabilidad") == "ifrs4")
-        )
-        .with_columns(pl.lit("ajuste_dac_cedido").alias("tipo_insumo"))
-        .with_columns(
-            [(pl.col(col) * -1).alias(col) for col in ["valor_md", "valor_ml"]]
-        )
-    )
-    return out_contable.vstack(dac_rea)
-
-
 def homologar_campos(
     out_det_fluc: pl.DataFrame,
     tabla_nomenclatura: pl.DataFrame,
@@ -182,7 +160,6 @@ def gen_output_contable(
     return (
         out_det_fluc.pipe(asignar_tipo_seguro, tabla_tipo_seg)
         .pipe(pivotear_output, params.COLUMNAS_CALCULO)
-        .pipe(add_registros_dac)
         .pipe(homologar_campos, tabla_nomenclatura)
         .pipe(cruzar_bt, tabla_mapeo_bt)
     )
