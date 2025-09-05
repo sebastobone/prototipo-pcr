@@ -332,6 +332,61 @@ def prep_input_onerosidad(
     return input_onerosidad
 
 
+def prep_input_recup_onerosidad_pp(
+    onerosidad_df: pl.DataFrame,
+    cesion_rea_df: pl.DataFrame,
+    param_contabilidad: pl.DataFrame,
+    fe_valoracion: dt.date,
+) -> pl.DataFrame:
+    # realiza los cruces base entre registros de onerosidad y parametros
+    polizas_rea = cesion_rea_df.select(
+        [
+            "tipo_negocio",
+            "contrato_reaseguro",
+            "nit_reasegurador",
+            "tipo_reasegurador",
+            "porc_participacion_reasegurador",
+            "fe_ini_vig_contrato_reaseguro",
+            "fe_fin_vig_contrato_reaseguro",
+            "poliza",
+            "compania",
+            "ramo_sura",
+            "porc_cesion",
+        ]
+    ).unique()
+
+    return (
+        onerosidad_df.with_columns(tipo_insumo=pl.lit("recup_onerosidad_pp"))
+        .filter(pl.col("fecha_operacion") <= fe_valoracion)
+        .drop("tipo_negocio")
+        .join(polizas_rea, on=["poliza", "compania", "ramo_sura"], how="inner")
+        .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
+        .with_columns(
+            fecha_inicio_vigencia_recibo=pl.col("fecha_operacion"),
+            fecha_fin_vigencia_recibo=pl.col("fecha_fin_vigencia_poliza"),
+            fecha_inicio_vigencia_cobertura=pl.col("fecha_operacion"),
+            fecha_fin_vigencia_cobertura=pl.col("fecha_fin_vigencia_poliza"),
+        )
+        .with_columns(fe_ini_vig_nivel.alias("fecha_inicio_vigencia"))
+        .with_columns(
+            # la fecha de constitucion de reserva es la de la operacion que
+            # afecta la onerosidad
+            pl.col("fecha_operacion").alias("fecha_constitucion")
+        )
+        .with_columns(
+            pl.max_horizontal([pl.col("fecha_constitucion"), fe_ini_vig_nivel]).alias(
+                "fecha_inicio_devengo"
+            )
+        )
+        .with_columns(fe_fin_vig_nivel.alias("fecha_fin_devengo"))
+        .with_columns(
+            valor_base_devengo=pl.col("valor_onerosidad")
+            * pl.col("porc_cesion")
+            * pl.col("porc_participacion_reasegurador")
+        )
+    )
+
+
 def cruzar_costo_seguim(
     costo_contrato: pl.DataFrame,
     seguimiento_costo: pl.DataFrame,
