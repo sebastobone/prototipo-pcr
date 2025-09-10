@@ -16,6 +16,10 @@ def cruzar_bt(
     """
     Cruza output de devengo con la tabla de bts
     """
+    relacion_bt = relacion_bt.with_columns(
+        pl.col("tipo_reasegurador").str.to_uppercase()
+    )
+
     print("Registros antes del cruce BT: ", out_devengo_fluct.shape[0])
     con = duckdb.connect(database=":memory:")  # isolate to memory
     result = duckdb.sql(
