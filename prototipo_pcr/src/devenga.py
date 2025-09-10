@@ -331,7 +331,6 @@ def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
     y organiza el output con estas columnas incluidas
     """
     # condiciones para definir los niveles de agregacion
-    devengo_en_curso = pl.col("estado_devengo") == "en_curso"
     es_anio_actual = (
         pl.col("fecha_constitucion").dt.year() == pl.col("fecha_valoracion").dt.year()
     )
@@ -340,14 +339,10 @@ def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
     data_devengo_out = (
         data_devengo.pipe(agregar_cohorte_dinamico)
         .with_columns(
-            # define si la liberacion es del año actual o anterior o ninguno porque no se libera
-            pl.when(devengo_en_curso)
-            .then(
-                pl.when(es_anio_actual)
-                .then(pl.lit("anio_actual"))
-                .otherwise(pl.lit("anio_anterior"))
-            )
-            .otherwise(pl.lit("no_aplica"))
+            # define si la liberacion es del año actual o anterior
+            pl.when(es_anio_actual)
+            .then(pl.lit("anio_actual"))
+            .otherwise(pl.lit("anio_anterior"))
             .alias("anio_liberacion")
         )
         .with_columns(pl.when(es_transicion).then(1).otherwise(0).alias("transicion"))
