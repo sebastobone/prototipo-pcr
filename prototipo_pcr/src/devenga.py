@@ -378,7 +378,9 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
         )
     )
     # define si aplica devengo de costo contrato
-    aplica_costo_contrato = pl.col("tipo_insumo") == "costo_contrato_rea_noprop"
+    aplica_costo_contrato = pl.col("tipo_insumo").is_in(
+        ["costo_contrato_rea_noprop", "recup_onerosidad_np"]
+    )
     # define si aplica 5050 y hace la particion del insumo
     dias_devengo = aux_tools.calcular_dias_diferencia(
         pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_devengo")
