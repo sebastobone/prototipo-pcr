@@ -7,6 +7,7 @@ import src.aux_tools as aux_tools
 import src.prep_insumo as prep_data
 import src.devenga as devg
 import src.fluctuacion as fluc
+import src.deterioro as det
 import src.mapeo_contable as mapcont
 import polars as pl
 
@@ -44,6 +45,8 @@ def run_pcr(fe_valoracion):
     # Insumos de onerosidad leidos desde el datalake
     onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
     recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
+    # Insumos de riesgo de credito cargado por equipo de riesgo financiero
+    riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
@@ -94,9 +97,9 @@ def run_pcr(fe_valoracion):
         aux_tools.alinear_esquemas(insumos_devengo), how="diagonal"
     )
     # devuelve la base ya devengada, con las columnas de movimientos saldos y de fluctuación
-    output_devengo_fluct = fluc.calc_fluctuacion(
-        devg.devengar(input_consolidado, FECHA_VALORACION), tasa_cambio
-    )
+    output_devengo_fluct = devg.devengar(input_consolidado, FECHA_VALORACION).pipe(
+        fluc.calc_fluctuacion, tasa_cambio
+    ).pipe(det.calc_deterioro, riesgo_credito, FECHA_VALORACION)
     output_devengo_fluct.write_excel(p.RUTA_SALIDA_DEVENGO)
     # convierte a output contable
     output_contable = mapcont.gen_output_contable(
