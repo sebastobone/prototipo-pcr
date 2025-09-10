@@ -82,12 +82,12 @@ def pivotear_output(
         .with_columns(
             pl.when(
                 pl.col("tipo_movimiento").is_in(
-                    ["fluctuacion_constitucion", "fluctuacion_liberacion"]
+                    ["valor_constitucion", "fluctuacion_constitucion", "saldo"]
                 )
             )
-            .then(pl.lit("fluctuacion"))
-            .otherwise(pl.col("tipo_movimiento"))
-            .alias("tipo_movimiento")
+            .then(pl.lit("no_aplica"))
+            .otherwise(pl.col("anio_liberacion"))
+            .alias("anio_liberacion")
         )
     )
 
@@ -119,7 +119,6 @@ def homologar_campos(
     tipo_contabilidad = obtener_homologacion(
         tabla_nomenclatura, "tipo_contabilidad", "tipo_contabilidad"
     )
-    
 
     df = (
         out_det_fluc.join(tipo_movimiento, on="tipo_movimiento", how="left")
