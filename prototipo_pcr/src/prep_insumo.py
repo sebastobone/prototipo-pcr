@@ -167,12 +167,7 @@ def prep_input_prima_rea(
             )
         )
         .with_columns(fe_fin_vig_nivel.alias("fecha_fin_devengo"))
-        .with_columns(
-            # los calculos deben estar abiertos por reasegurador
-            (
-                pl.col("valor_prima_cedida") * pl.col("porc_participacion_reasegurador")
-            ).alias("valor_base_devengo")
-        )
+        .with_columns((pl.col("valor_prima_cedida")).alias("valor_base_devengo"))
     )
     return input_prima_rea
 
