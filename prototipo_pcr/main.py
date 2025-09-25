@@ -97,9 +97,11 @@ def run_pcr(fe_valoracion):
         aux_tools.alinear_esquemas(insumos_devengo), how="diagonal"
     )
     # devuelve la base ya devengada, con las columnas de movimientos saldos y de fluctuación
-    output_devengo_fluct = devg.devengar(input_consolidado, FECHA_VALORACION).pipe(
-        fluc.calc_fluctuacion, tasa_cambio
-    ).pipe(det.calc_deterioro, riesgo_credito, FECHA_VALORACION)
+    output_devengo_fluct = (
+        devg.devengar(input_consolidado, FECHA_VALORACION)
+        .pipe(fluc.calc_fluctuacion, tasa_cambio)
+        .pipe(det.calc_deterioro, riesgo_credito, FECHA_VALORACION)
+    )
     output_devengo_fluct.write_excel(p.RUTA_SALIDA_DEVENGO)
     # convierte a output contable
     output_contable = mapcont.gen_output_contable(
