@@ -250,7 +250,10 @@ def devengo_diario_vs_limite(input_costo: pl.DataFrame) -> pl.DataFrame:
         .with_columns(
             # % consumo del límite en el mes
             (
-                pl.col("valor_siniestros_incurridos_mes")
+                (
+                    pl.col("valor_siniestros_incurridos_mes")
+                    + pl.col("valor_salvamentos_mes")
+                )
                 / pl.col("limite_agregado_valor_instalado")
             ).alias("porc_consumo_limite")
         )

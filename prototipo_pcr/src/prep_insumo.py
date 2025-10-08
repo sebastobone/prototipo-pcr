@@ -400,6 +400,7 @@ def cruzar_costo_seguim(
             costo.*,
             seguim.limite_agregado_valor_instalado,
             seguim.valor_siniestros_incurridos_mes,
+            seguim.valor_salvamentos_mes,
             seguim.limite_agregado_casos_instalado,
             seguim.casos_incurridos_mes
         FROM costo_contrato AS costo
