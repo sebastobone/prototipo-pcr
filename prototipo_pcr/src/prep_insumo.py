@@ -437,9 +437,9 @@ def prep_input_costo_con(
     # si se procesa por primera vez el recibo, parte de la base inicial
     else:
         # si el costo de contrato viene totalizado en el recibo, se abre por reasegurador
-        base_devengo = pl.col("valor_costo_contrato") * pl.col(
-            "porc_participacion_reasegurador"
-        )
+        base_devengo = (
+            pl.col("valor_costo_contrato") + pl.col("valor_reinstalamento")
+        ) * pl.col("porc_participacion_reasegurador")
         fe_inicio_devengo = fe_ini_vig_nivel
 
     # realiza los cruces base entre cesion del reaseguro y parametros
