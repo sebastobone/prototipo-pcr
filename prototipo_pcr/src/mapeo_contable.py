@@ -72,21 +72,15 @@ def pivotear_output(
         # convierte valores validos a pesos
         .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0))
         .with_columns((multiplicador * pl.col("valor_md")).alias("valor_ml"))
-        # El deterioro esta asignado como prima en el concepto de BTs
         .with_columns(
             pl.when(
                 pl.col("tipo_movimiento").is_in(
-                    ["constitucion_deterioro", "liberacion_deterioro"]
-                )
-            )
-            .then(pl.lit("prima"))
-            .otherwise(pl.col("componente"))
-            .alias("componente")
-        )
-        .with_columns(
-            pl.when(
-                pl.col("tipo_movimiento").is_in(
-                    ["valor_constitucion", "fluctuacion_constitucion", "saldo"]
+                    [
+                        "valor_constitucion",
+                        "fluctuacion_constitucion",
+                        "constitucion_deterioro",
+                        "saldo",
+                    ]
                 )
             )
             .then(pl.lit("no_aplica"))
