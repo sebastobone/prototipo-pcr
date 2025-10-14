@@ -61,6 +61,10 @@ def pivotear_output(
 
     multiplicador = pl.col("tasa_cambio_fecha_valoracion")
 
+    transicion_niif_4 = (pl.col("tipo_movimiento") == "saldo") & (
+        pl.col("tipo_contabilidad") == "ifrs4"
+    )
+
     return (
         out_deterioro_fluct
         # columnas calculadas a filas
@@ -72,6 +76,8 @@ def pivotear_output(
         # convierte valores validos a pesos
         .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0))
         .with_columns((multiplicador * pl.col("valor_md")).alias("valor_ml"))
+        # no hay transicion para NIIF4
+        .filter(~transicion_niif_4)
         .with_columns(
             pl.when(
                 pl.col("tipo_movimiento").is_in(
