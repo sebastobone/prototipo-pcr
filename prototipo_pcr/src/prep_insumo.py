@@ -203,12 +203,9 @@ def prep_input_dcto_rea(
         .with_columns(fe_fin_vig_nivel.alias("fecha_fin_devengo"))
         .with_columns(
             # valor base del devengo es el porc descuento comercial aplicado a la prima reconstruida cedida
-            # abierto por reasegurador
-            (
-                prima_reconstruida_ced
-                * pl.col("podto_comercial")
-                * pl.col("porc_participacion_reasegurador")
-            ).alias("valor_base_devengo")
+            (prima_reconstruida_ced * pl.col("podto_comercial")).alias(
+                "valor_base_devengo"
+            )
         )
     )
     return input_dcto_rea
@@ -248,12 +245,10 @@ def prep_input_gasto_rea(
         )
         .with_columns(fe_fin_vig_nivel.alias("fecha_fin_devengo"))
         .with_columns(
-            # valor base del devengo es el porc de gasto aplicado sobre la prima cedida abierta por reasegurador
-            (
-                pl.col("valor_prima_cedida")
-                * pl.col("porc_gasto")
-                * pl.col("porc_participacion_reasegurador")
-            ).alias("valor_base_devengo")
+            # valor base del devengo es el porc de gasto aplicado sobre la prima cedida
+            (pl.col("valor_prima_cedida") * pl.col("porc_gasto")).alias(
+                "valor_base_devengo"
+            )
         )
     )
     return input_gasto_rea
@@ -283,12 +278,7 @@ def prep_input_comi_rea(
             )
         )
         .with_columns(fe_fin_vig_nivel.alias("fecha_fin_devengo"))
-        .with_columns(
-            # los calculos deben estar abiertos por reasegurador
-            (
-                pl.col("valor_comision_rea") * pl.col("porc_participacion_reasegurador")
-            ).alias("valor_base_devengo")
-        )
+        .with_columns(pl.col("valor_comision_rea").alias("valor_base_devengo"))
     )
     return input_comi_rea
 
