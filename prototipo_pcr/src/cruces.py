@@ -200,9 +200,6 @@ def cruzar_tasas_cambio(
             cols_query += "\n" + tc
             joins_query += "\n" + tj
 
-    duckdb.register("base", base)
-    duckdb.register("tasas_cambio", tasas_cambio)
-
     return duckdb.sql(
         f"""
         SELECT

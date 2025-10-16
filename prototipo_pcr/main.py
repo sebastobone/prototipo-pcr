@@ -47,6 +47,8 @@ def run_pcr(fe_valoracion):
     recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
     # Insumos de riesgo de credito cargado por equipo de riesgo financiero
     riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
+    # Insumos no devengables
+    cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
@@ -103,9 +105,19 @@ def run_pcr(fe_valoracion):
         .pipe(det.calc_deterioro, riesgo_credito, FECHA_VALORACION)
     )
     output_devengo_fluct.write_excel(p.RUTA_SALIDA_DEVENGO)
+
+    # Insumos no devengables
+    insumos_no_devengo = [
+        prep_data.prep_input_cartera(cartera, param_contab, FECHA_VALORACION),
+    ]
+
     # convierte a output contable
     output_contable = mapcont.gen_output_contable(
-        output_devengo_fluct, input_map_bts, input_tipo_seguro, tabla_nomenclatura
+        output_devengo_fluct,
+        input_map_bts,
+        input_tipo_seguro,
+        tabla_nomenclatura,
+        insumos_no_devengo,
     )
     output_contable.write_clipboard()
     output_contable.write_excel(p.RUTA_SALIDA_CONTABLE)

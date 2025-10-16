@@ -550,3 +550,29 @@ def prep_input_recup_onerosidad_np(
             (base_devengo).alias("valor_base_devengo")
         )
     )
+
+
+def prep_input_cartera(
+    cartera_df: pl.DataFrame,
+    param_contabilidad: pl.DataFrame,
+    fe_valoracion: dt.date,
+) -> pl.DataFrame:
+    return (
+        cartera_df.pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
+        .with_columns(
+            fecha_valoracion=fe_valoracion,
+            fecha_inicio_periodo=pl.lit(fe_valoracion)
+            .dt.month_start()
+            .alias("fecha_inicio_periodo"),
+            valor_md=pl.col("valor_ml"),
+            anio_liberacion=pl.lit("no_aplica"),
+            regla_devengo=pl.lit("no_aplica"),
+        )
+        .filter(
+            pl.col("fecha_corte").is_between(
+                pl.col("fecha_inicio_periodo"), pl.col("fecha_valoracion")
+            )
+        )
+        .pipe(aux_tools.agregar_cohorte_dinamico)
+        .pipe(aux_tools.etiquetar_transicion, fe_valoracion)
+    )

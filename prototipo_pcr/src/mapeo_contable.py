@@ -150,19 +150,27 @@ def obtener_homologacion(
     )
 
 
+def agregar_componentes_no_devengables(
+    df: pl.DataFrame, componentes: list[pl.DataFrame]
+) -> pl.DataFrame:
+    return pl.concat([df] + componentes, how="diagonal_relaxed")
+
+
 def gen_output_contable(
     out_det_fluc: pl.DataFrame,
     tabla_mapeo_bt: pl.DataFrame,
     tabla_tipo_seg: pl.DataFrame,
     tabla_nomenclatura: pl.DataFrame,
+    componentes_no_devengables: list[pl.DataFrame],
 ) -> pl.DataFrame:
     """
     Se encarga de aplicar los pasos para obtener el output segun requerimientos contables
     """
 
     return (
-        out_det_fluc.pipe(asignar_tipo_seguro, tabla_tipo_seg)
-        .pipe(pivotear_output, params.COLUMNAS_CALCULO)
+        out_det_fluc.pipe(pivotear_output, params.COLUMNAS_CALCULO)
+        .pipe(agregar_componentes_no_devengables, componentes_no_devengables)
         .pipe(homologar_campos, tabla_nomenclatura)
+        .pipe(asignar_tipo_seguro, tabla_tipo_seg)
         .pipe(cruzar_bt, tabla_mapeo_bt)
     )

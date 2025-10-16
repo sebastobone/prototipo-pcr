@@ -20,6 +20,7 @@ HOJA_GASTO = "gastos"
 HOJA_MONEDA = "tasa_cambio"
 HOJA_DESCUENTO = "porc_descuento"
 HOJA_TIPO_SEGURO = "tipo_seguro"
+HOJA_CARTERA = "cuenta_cobrar_directo"
 HOJA_CUENTAS_REA = "cuentas_reaseguro"
 RUTA_RIESGO_CREDITO = base_dir.parent / "inputs" / "riesgo_credito.xlsx"
 

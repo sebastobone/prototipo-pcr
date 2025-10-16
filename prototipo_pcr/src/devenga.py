@@ -300,34 +300,6 @@ def devengo_diario_vs_limite(input_costo: pl.DataFrame) -> pl.DataFrame:
     return output_devengo_costo
 
 
-def agregar_cohorte_dinamico(df: pl.DataFrame) -> pl.DataFrame:
-    """
-    La cohorte depende del tipo de contrato,
-    por lo cual debe usar columnas distintas que deben aparecer en el insumo
-    """
-    columnas = df.columns
-    tiene_col_directo = "fecha_expedicion_poliza" in columnas
-    tiene_col_rea = "fe_ini_vig_contrato_reaseguro" in columnas
-    if tiene_col_directo and tiene_col_rea:
-        cohorte_directo = pl.col("fecha_expedicion_poliza").dt.year()
-        cohorte_rea = pl.col("fe_ini_vig_contrato_reaseguro").dt.year()
-        expr = (
-            pl.when(pl.col("tipo_contrato") == "directo")
-            .then(cohorte_directo)
-            .otherwise(cohorte_rea)
-        )
-    elif tiene_col_directo:
-        expr = pl.col("fecha_expedicion_poliza").dt.year()
-    elif tiene_col_rea:
-        expr = pl.col("fe_ini_vig_contrato_reaseguro").dt.year()
-    else:
-        raise ValueError(
-            "No existen columnas de fecha válidas para definir la cohorte."
-        )
-
-    return df.with_columns(expr.alias("cohorte"))
-
-
 def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
     """
     calcula campos necesarios según los inputs y outputs del devengo
@@ -337,10 +309,9 @@ def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
     es_anio_actual = (
         pl.col("fecha_constitucion").dt.year() == pl.col("fecha_valoracion").dt.year()
     )
-    es_transicion = pl.col("fecha_valoracion") == params.FECHA_TRANSICION
     # aplica condiciones
     data_devengo_out = (
-        data_devengo.pipe(agregar_cohorte_dinamico)
+        data_devengo.pipe(aux_tools.agregar_cohorte_dinamico)
         .with_columns(
             # define si la liberacion es del año actual o anterior
             pl.when(es_anio_actual)
@@ -348,7 +319,7 @@ def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
             .otherwise(pl.lit("anio_anterior"))
             .alias("anio_liberacion")
         )
-        .with_columns(pl.when(es_transicion).then(1).otherwise(0).alias("transicion"))
+        .pipe(aux_tools.etiquetar_transicion, params.FECHA_VALORACION)
     )
 
     return data_devengo_out
