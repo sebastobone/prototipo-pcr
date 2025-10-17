@@ -34,15 +34,9 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
             ).alias("estado_devengo")
         )
         .with_columns(
-            pl.when(pl.col("estado_devengo") == "finalizado")
-            .then(0)  # no se constituye si ya finalizó la vigencia
-            # en cualquier otro caso, se constituye por el total de la vigencia
-            .otherwise(
-                aux_tools.calcular_dias_diferencia(
-                    pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_vigencia")
-                )
-            )
-            .alias("dias_constitucion")
+            aux_tools.calcular_dias_diferencia(
+                pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_vigencia")
+            ).alias("dias_constitucion")
         )
         .with_columns(
             # dias que ya se devengaron, depende del estado
@@ -90,10 +84,9 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
         )
         .with_columns(
             # valor diario devengo (prima diaria en sap)
-            pl.when(pl.col("dias_constitucion") != 0)
-            .then(pl.col("valor_base_devengo") / pl.col("dias_constitucion"))
-            .otherwise(0.0)
-            .alias("valor_devengo_diario")
+            (pl.col("valor_base_devengo") / pl.col("dias_constitucion")).alias(
+                "valor_devengo_diario"
+            )
         )
         .with_columns(
             (  # el valor que falta por devengarse es el saldo
@@ -113,6 +106,8 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
             # Queremos que si entra devengado, libere todo
             pl.when(pl.col("estado_devengo") == "entra_devengado")
             .then(pl.col("dias_constitucion"))
+            .when(pl.col("estado_devengo") == "no_iniciado")
+            .then(pl.lit(0))
             .when(pl.col("fecha_inicio_periodo") <= pl.col("fecha_fin_devengo"))
             .then(
                 aux_tools.calcular_dias_diferencia(
