@@ -48,7 +48,10 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
             )
             .then(
                 aux_tools.calcular_dias_diferencia(
-                    pl.col("fecha_valoracion"), pl.col("fecha_inicio_vigencia")
+                    pl.min_horizontal(
+                        [pl.col("fecha_fin_devengo"), pl.col("fecha_valoracion")]
+                    ),
+                    pl.col("fecha_inicio_vigencia"),
                 )
             )
             .when(pl.col("estado_devengo") == "finalizado")
@@ -104,7 +107,10 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
         )
         .with_columns(
             # Queremos que si entra devengado, libere todo
-            pl.when(pl.col("estado_devengo") == "entra_devengado")
+            pl.when(
+                (pl.col("estado_devengo") == "entra_devengado")
+                & (pl.col("valor_constitucion") != 0)
+            )
             .then(pl.col("dias_constitucion"))
             .when(pl.col("estado_devengo") == "no_iniciado")
             .then(pl.lit(0))
