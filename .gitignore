@@ -4,3 +4,9 @@ output/
 venv/
 .DS_Store
 *.egg-info
+
+prototipo_pcr/tests/data
+
+.coverage
+
+.vscode
