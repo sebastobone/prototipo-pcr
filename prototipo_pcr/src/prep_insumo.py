@@ -576,3 +576,19 @@ def prep_input_cartera(
         .pipe(aux_tools.agregar_cohorte_dinamico)
         .pipe(aux_tools.etiquetar_transicion, fe_valoracion)
     )
+
+
+def prep_input_produccion_arl(produccion_arl: pl.DataFrame) -> pl.DataFrame:
+    return produccion_arl.with_columns(
+        fecha_inicio_vigencia_recibo=pl.date(
+            pl.col("mes_cotizacion") // 100, pl.col("mes_cotizacion") % 100, 1
+        ),
+        fecha_inicio_vigencia_cobertura=pl.date(
+            pl.col("mes_cotizacion") // 100, pl.col("mes_cotizacion") % 100, 1
+        ),
+    ).with_columns(
+        fecha_fin_vigencia_recibo=pl.col("fecha_inicio_vigencia_recibo").dt.month_end(),
+        fecha_fin_vigencia_cobertura=pl.col(
+            "fecha_inicio_vigencia_cobertura"
+        ).dt.month_end(),
+    )

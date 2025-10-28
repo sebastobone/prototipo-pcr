@@ -42,6 +42,7 @@ def run_pcr(fe_valoracion):
     comision_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_COMISION_REA)
     costo_contrato_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_COSTO_CONTRATO)
     seguimiento_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_SEGUIMIENTO_REA)
+    produccion_arl = pl.read_excel(p.RUTA_PRODUCCION_ARL)
     # Insumos de onerosidad leidos desde el datalake
     onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
     recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
@@ -49,6 +50,11 @@ def run_pcr(fe_valoracion):
     riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
     # Insumos no devengables
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
+
+    produccion_arl_prep = prep_data.prep_input_produccion_arl(
+        produccion_arl
+    )
+    produccion_dir = pl.concat([produccion_dir, produccion_arl_prep], how="diagonal_relaxed")
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
