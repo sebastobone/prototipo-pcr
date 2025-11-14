@@ -51,10 +51,10 @@ def run_pcr(fe_valoracion):
     # Insumos no devengables
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
 
-    produccion_arl_prep = prep_data.prep_input_produccion_arl(
-        produccion_arl
+    produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
+    produccion_dir = pl.concat(
+        [produccion_dir, produccion_arl_prep], how="diagonal_relaxed"
     )
-    produccion_dir = pl.concat([produccion_dir, produccion_arl_prep], how="diagonal_relaxed")
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
