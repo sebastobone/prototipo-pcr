@@ -53,6 +53,7 @@ def run_pcr(fe_valoracion):
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
     cartera_arl = pl.read_excel(p.RUTA_CARTERA_ARL)
     cuenta_corriente = pl.read_excel(p.RUTA_CUENTA_CORRIENTE)
+    cuenta_corriente_arl = pl.read_excel(p.RUTA_CUENTA_CORRIENTE_ARL)
 
     produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
     produccion_dir = pl.concat(
@@ -71,6 +72,10 @@ def run_pcr(fe_valoracion):
             ),
         ],
         how="diagonal_relaxed",
+    )
+
+    cuenta_corriente = pl.concat(
+        [cuenta_corriente, cuenta_corriente_arl], how="diagonal_relaxed"
     )
 
     # Prepara cada insumo para entrar a devengo
