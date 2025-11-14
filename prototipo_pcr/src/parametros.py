@@ -17,11 +17,11 @@ RUTA_COSTO_CONTRATO_ARL = base_dir.parent / "inputs" / "costo_contrato_arl.xlsx"
 RUTA_CARTERA_ARL = base_dir.parent / "inputs" / "cartera_arl.xlsx"
 RUTA_CUENTA_CORRIENTE = base_dir.parent / "inputs" / "cuenta_corriente.xlsx"
 RUTA_CUENTA_CORRIENTE_ARL = base_dir.parent / "inputs" / "cuenta_corriente_arl.xlsx"
+RUTA_GASTOS = base_dir.parent / "inputs" / "gastos.xlsx"
 
 # Insumos transversales
 HOJA_PARAMETROS_CONTAB = "param_contabilidad"
 HOJA_EXCEPCIONES_50_50 = "excepciones_50_50"
-HOJA_GASTO = "gastos"
 HOJA_MONEDA = "tasa_cambio"
 HOJA_DESCUENTO = "porc_descuento"
 HOJA_TIPO_SEGURO = "tipo_seguro"

@@ -27,7 +27,7 @@ def run_pcr(fe_valoracion):
         pl.col("estado_insumo") == 1
     )  # Solo se usan las configuraciones activas (1)
     excepciones = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_EXCEPCIONES_50_50)
-    gasto = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_GASTO)
+    gasto = pl.read_excel(p.RUTA_GASTOS)
     tasa_cambio = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_MONEDA)
     descuentos = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_DESCUENTO)
     # El diccionario o tabla de correspondencia de outputs con entradas contables
