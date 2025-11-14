@@ -51,6 +51,7 @@ def run_pcr(fe_valoracion):
     riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
     # Insumos no devengables
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
+    cartera_arl = pl.read_excel(p.RUTA_CARTERA_ARL)
 
     produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
     produccion_dir = pl.concat(
@@ -59,6 +60,16 @@ def run_pcr(fe_valoracion):
 
     costo_contrato_rea = pl.concat(
         [costo_contrato_rea, costo_contrato_arl], how="diagonal_relaxed"
+    )
+
+    cartera = pl.concat(
+        [
+            cartera,
+            cartera_arl.with_columns(
+                fecha_expedicion_poliza=pl.col("mes_cotizacion").dt.month_start()
+            ),
+        ],
+        how="diagonal_relaxed",
     )
 
     # Prepara cada insumo para entrar a devengo

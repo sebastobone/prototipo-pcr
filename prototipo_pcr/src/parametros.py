@@ -14,6 +14,7 @@ RUTA_REL_BT = base_dir.parent / "inputs" / "relacion_bt.xlsx"
 RUTA_NOMENCLATURA = base_dir.parent / "inputs" / "nomenclatura.xlsx"
 RUTA_PRODUCCION_ARL = base_dir.parent / "inputs" / "produccion_arl.xlsx"
 RUTA_COSTO_CONTRATO_ARL = base_dir.parent / "inputs" / "costo_contrato_arl.xlsx"
+RUTA_CARTERA_ARL = base_dir.parent / "inputs" / "cartera_arl.xlsx"
 
 # Insumos transversales
 HOJA_PARAMETROS_CONTAB = "param_contabilidad"
