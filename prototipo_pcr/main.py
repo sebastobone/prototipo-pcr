@@ -52,6 +52,7 @@ def run_pcr(fe_valoracion):
     # Insumos no devengables
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
     cartera_arl = pl.read_excel(p.RUTA_CARTERA_ARL)
+    cuenta_corriente = pl.read_excel(p.RUTA_CUENTA_CORRIENTE)
 
     produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
     produccion_dir = pl.concat(
@@ -131,6 +132,7 @@ def run_pcr(fe_valoracion):
     # Insumos no devengables
     insumos_no_devengo = [
         prep_data.prep_input_cartera(cartera, param_contab, FECHA_VALORACION),
+        prep_data.prep_input_cartera(cuenta_corriente, param_contab, FECHA_VALORACION),
     ]
 
     # convierte a output contable
