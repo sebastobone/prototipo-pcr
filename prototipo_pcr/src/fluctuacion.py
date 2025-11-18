@@ -12,6 +12,7 @@ def calc_fluctuacion(
     data_devengo: pl.DataFrame, tasas_cambio: pl.DataFrame
 ) -> pl.DataFrame:
     # Filtra para alicar solo a moneda extranjera
+
     data_devengo_mext = data_devengo.filter(pl.col("moneda") != "COP")
     data_devengo_mloc = data_devengo.filter(~(pl.col("moneda") != "COP"))
 
@@ -34,10 +35,10 @@ def calc_fluctuacion(
         data_devengo_mext.pipe(
             cruces.cruzar_tasas_cambio, tasas_cambio, liquidacion=False
         )
-        .with_columns((pl.col("saldo") * delta_tc).alias("fluctuacion_constitucion"))
+        .with_columns((pl.col("saldo") * delta_tc / pl.col("tasa_cambio_fecha_valoracion")).alias("fluctuacion_constitucion"))
         .with_columns(
             # El signo de la liberacion se invierte para reflejar el efecto economico
-            (-1 * pl.col("valor_liberacion") * delta_tc).alias("fluctuacion_liberacion")
+            (-1 * pl.col("valor_liberacion") * delta_tc / pl.col("tasa_cambio_fecha_valoracion")).alias("fluctuacion_liberacion")
         )
     )
     cols_fluc = ["fluctuacion_constitucion", "fluctuacion_liberacion"]
