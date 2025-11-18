@@ -69,7 +69,7 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
                     pl.col("fecha_fin_devengo"),
                     pl.col("fecha_valoracion"),
                     incluir_extremos=False,
-                )
+                ).map_elements(lambda x: max(x, 0))
             )
             .when(
                 (pl.col("estado_devengo") == "finalizado")
