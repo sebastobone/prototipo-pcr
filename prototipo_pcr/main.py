@@ -27,7 +27,7 @@ def run_pcr(fe_valoracion):
         pl.col("estado_insumo") == 1
     )  # Solo se usan las configuraciones activas (1)
     excepciones = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_EXCEPCIONES_50_50)
-    gasto = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_GASTO)
+    gasto = pl.read_excel(p.RUTA_GASTOS)
     tasa_cambio = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_MONEDA)
     descuentos = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_DESCUENTO)
     # El diccionario o tabla de correspondencia de outputs con entradas contables
@@ -43,6 +43,7 @@ def run_pcr(fe_valoracion):
     costo_contrato_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_COSTO_CONTRATO)
     seguimiento_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_SEGUIMIENTO_REA)
     produccion_arl = pl.read_excel(p.RUTA_PRODUCCION_ARL)
+    costo_contrato_arl = pl.read_excel(p.RUTA_COSTO_CONTRATO_ARL)
     # Insumos de onerosidad leidos desde el datalake
     onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
     recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
@@ -50,11 +51,32 @@ def run_pcr(fe_valoracion):
     riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
     # Insumos no devengables
     cartera = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
+    cartera_arl = pl.read_excel(p.RUTA_CARTERA_ARL)
+    cuenta_corriente = pl.read_excel(p.RUTA_CUENTA_CORRIENTE)
+    cuenta_corriente_arl = pl.read_excel(p.RUTA_CUENTA_CORRIENTE_ARL)
 
-    produccion_arl_prep = prep_data.prep_input_produccion_arl(
-        produccion_arl
+    produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
+    produccion_dir = pl.concat(
+        [produccion_dir, produccion_arl_prep], how="diagonal_relaxed"
     )
-    produccion_dir = pl.concat([produccion_dir, produccion_arl_prep], how="diagonal_relaxed")
+
+    costo_contrato_rea = pl.concat(
+        [costo_contrato_rea, costo_contrato_arl], how="diagonal_relaxed"
+    )
+
+    cartera = pl.concat(
+        [
+            cartera,
+            cartera_arl.with_columns(
+                fecha_expedicion_poliza=pl.col("mes_cotizacion").dt.month_start()
+            ),
+        ],
+        how="diagonal_relaxed",
+    )
+
+    cuenta_corriente = pl.concat(
+        [cuenta_corriente, cuenta_corriente_arl], how="diagonal_relaxed"
+    )
 
     # Prepara cada insumo para entrar a devengo
     insumos_devengo = [
@@ -115,6 +137,7 @@ def run_pcr(fe_valoracion):
     # Insumos no devengables
     insumos_no_devengo = [
         prep_data.prep_input_cartera(cartera, param_contab, FECHA_VALORACION),
+        prep_data.prep_input_cartera(cuenta_corriente, param_contab, FECHA_VALORACION),
     ]
 
     # convierte a output contable

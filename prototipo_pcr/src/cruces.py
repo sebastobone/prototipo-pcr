@@ -92,7 +92,6 @@ def cruzar_gastos_expedicion(
         cruce AS (
             SELECT 
                 prod.*,
-                g.tipo_contabilidad,
                 g.tipo_gasto,
                 g.porc_gasto,
                 g.prioridad_match,
@@ -104,13 +103,11 @@ def cruzar_gastos_expedicion(
                         prod.poliza_certificado,
                         prod.recibo,
                         prod.amparo,
-                        g.tipo_gasto,
-                        g.tipo_contabilidad
+                        g.tipo_gasto
                     ORDER BY g.prioridad_match
                 ) AS rn
             FROM produccion AS prod
             JOIN gastos_priorizados g
-            -- no cruza por tipo_contabilidad pgarantizar todas las combinaciones
                 ON prod.compania = g.compania
                 AND prod.ramo_sura = g.ramo_sura
                 AND (prod.canal = g.canal OR g.canal = '*')

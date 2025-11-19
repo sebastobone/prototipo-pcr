@@ -39,17 +39,16 @@ def test_cruzar_gastos_expedicion(
     )
     gastos = pl.DataFrame(
         {
+            "fecha_clave": ["2023-12-31", "2023-12-31"],
             "fecha_inicio": ["2023-01-01", "2023-01-01"],
             "fecha_fin": ["2023-12-31", "2023-12-31"],
-            "tipo_contabilidad": ["ifrs17_local", "ifrs17_local"],
             "compania": ["01", "01"],
             "ramo_sura": ["040", "040"],
             "canal": [canal, canal],
             "producto": [producto, producto],
             "tipo_gasto": ["expedicion_comisiones", "expedicion_otros"],
+            "real_estimado": ["estimado", "estimado"],
             "porc_gasto": porcentajes_esperados,
-            "valor_gasto": [0, 0],
-            "tipo_reserva": ["PCR CP", "PCR CP"],
         }
     )
 

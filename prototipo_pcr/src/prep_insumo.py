@@ -427,9 +427,7 @@ def prep_input_costo_con(
     # si se procesa por primera vez el recibo, parte de la base inicial
     else:
         # si el costo de contrato viene totalizado en el recibo, se abre por reasegurador
-        base_devengo = (
-            pl.col("valor_costo_contrato") + pl.col("valor_reinstalamento")
-        ) * pl.col("porc_participacion_reasegurador")
+        base_devengo = pl.col("valor_costo_contrato") + pl.col("valor_reinstalamento")
         fe_inicio_devengo = fe_ini_vig_nivel
 
     # realiza los cruces base entre cesion del reaseguro y parametros
@@ -505,7 +503,6 @@ def prep_input_recup_onerosidad_np(
         ).dt.month_start()  # recalcula el devengo desde esta fecha
     # si se procesa por primera vez el recibo, parte de la base inicial
     else:
-        # si el costo de contrato viene totalizado en el recibo, se abre por reasegurador
         base_devengo = pl.col("valor_recuperacion") * pl.col(
             "porc_participacion_reasegurador"
         )
@@ -580,15 +577,9 @@ def prep_input_cartera(
 
 def prep_input_produccion_arl(produccion_arl: pl.DataFrame) -> pl.DataFrame:
     return produccion_arl.with_columns(
-        fecha_inicio_vigencia_recibo=pl.date(
-            pl.col("mes_cotizacion") // 100, pl.col("mes_cotizacion") % 100, 1
-        ),
-        fecha_inicio_vigencia_cobertura=pl.date(
-            pl.col("mes_cotizacion") // 100, pl.col("mes_cotizacion") % 100, 1
-        ),
-    ).with_columns(
-        fecha_fin_vigencia_recibo=pl.col("fecha_inicio_vigencia_recibo").dt.month_end(),
-        fecha_fin_vigencia_cobertura=pl.col(
-            "fecha_inicio_vigencia_cobertura"
-        ).dt.month_end(),
+        fecha_inicio_vigencia_recibo=pl.col("mes_cotizacion").dt.month_start(),
+        fecha_inicio_vigencia_cobertura=pl.col("mes_cotizacion").dt.month_start(),
+        fecha_fin_vigencia_recibo=pl.col("mes_cotizacion").dt.month_end(),
+        fecha_fin_vigencia_cobertura=pl.col("mes_cotizacion").dt.month_end(),
+        fecha_expedicion_poliza=pl.col("mes_cotizacion").dt.month_start(),
     )

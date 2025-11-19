@@ -79,12 +79,12 @@ def extraer_resultado_devengo(resultado: pl.DataFrame) -> ResultadosDevengo:
 def validar_resultado_devengo(
     resultado_devengo: ResultadosDevengo, resultado_esperado: ResultadosDevengo
 ):
-    assert resultado_devengo.estado_devengo == resultado_esperado.estado_devengo, (
-        "Estado devengo incorrecto"
-    )
-    assert resultado_devengo.dias_devengados == resultado_esperado.dias_devengados, (
-        "Dias devengados incorrectos"
-    )
+    assert (
+        resultado_devengo.estado_devengo == resultado_esperado.estado_devengo
+    ), "Estado devengo incorrecto"
+    assert (
+        resultado_devengo.dias_devengados == resultado_esperado.dias_devengados
+    ), "Dias devengados incorrectos"
     assert (
         resultado_devengo.dias_no_devengados == resultado_esperado.dias_no_devengados
     ), "Dias no devengados incorrectos"
@@ -97,9 +97,9 @@ def validar_resultado_devengo(
     assert resultado_devengo.liberacion_acum == pytest.approx(
         resultado_esperado.liberacion_acum
     ), "Liberacion acumulada incorrecta"
-    assert resultado_devengo.saldo == pytest.approx(resultado_esperado.saldo), (
-        "Saldo incorrecto"
-    )
+    assert resultado_devengo.saldo == pytest.approx(
+        resultado_esperado.saldo
+    ), "Saldo incorrecto"
 
 
 @pytest.fixture
