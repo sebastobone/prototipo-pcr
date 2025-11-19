@@ -2,6 +2,7 @@
 Todas las funciones auxiliares empleadas en los distintos calculos
 """
 
+import src.parametros as params
 import polars as pl
 import datetime as dt
 import calendar
@@ -139,8 +140,8 @@ def agregar_cohorte_dinamico(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(expr.alias("cohorte"))
 
 
-def etiquetar_transicion(df: pl.DataFrame, fecha_valoracion: dt.date) -> pl.DataFrame:
-    es_transicion = pl.col("fecha_valoracion") == fecha_valoracion
+def etiquetar_transicion(df: pl.DataFrame) -> pl.DataFrame:
+    es_transicion = pl.col("fecha_valoracion") == params.FECHA_TRANSICION
     return df.with_columns(
-        pl.when(es_transicion).then(1).otherwise(0).alias("transicion")
+        pl.when(es_transicion).then(pl.lit("1")).otherwise(pl.lit("0")).alias("transicion")
     )

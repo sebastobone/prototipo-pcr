@@ -42,8 +42,8 @@ HOJA_RECUP_ONEROSIDAD = "recup_onerosidad"
 
 
 # Fechas relevantes para cada ejecución
-FECHA_VALORACION = date(2024, 12, 31)
-FECHA_TRANSICION = date(2024, 9, 30)
+FECHA_VALORACION = date(2025, 1, 31)
+FECHA_TRANSICION = date(2024, 12, 31)
 FECHA_VALORACION_ANTERIOR = FECHA_VALORACION + relativedelta(months=-1)
 
 # Rutas salidas

@@ -148,7 +148,6 @@ def run_pcr(fe_valoracion):
         tabla_nomenclatura,
         insumos_no_devengo,
     )
-    output_contable.write_clipboard()
     output_contable.write_excel(p.RUTA_SALIDA_CONTABLE)
 
     return output_devengo_fluct, output_contable
