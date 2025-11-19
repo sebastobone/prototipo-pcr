@@ -42,6 +42,7 @@ def cruzar_bt(
             AND out_devengo_fluct.compania_codigo = relacion_bt.compania
             AND out_devengo_fluct.tipo_contabilidad_codigo = relacion_bt.tipo_contabilidad
             AND out_devengo_fluct.tipo_reserva = relacion_bt.tipo_reserva
+            AND out_devengo_fluct.transicion_codigo = relacion_bt.transicion
         """
     ).pl()
     con.close()
@@ -61,10 +62,6 @@ def pivotear_output(
 
     multiplicador = pl.col("tasa_cambio_fecha_valoracion")
 
-    transicion_niif_4 = (pl.col("tipo_movimiento") == "saldo") & (
-        pl.col("tipo_contabilidad") == "ifrs4"
-    )
-
     return (
         out_deterioro_fluct
         # columnas calculadas a filas
@@ -76,8 +73,6 @@ def pivotear_output(
         # convierte valores validos a pesos
         .filter(pl.col("valor_md").is_not_null() & (pl.col("valor_md") != 0))
         .with_columns((multiplicador * pl.col("valor_md")).alias("valor_ml"))
-        # no hay transicion para NIIF4
-        .filter(~transicion_niif_4)
         .with_columns(
             pl.when(
                 pl.col("tipo_movimiento").is_in(
@@ -124,6 +119,8 @@ def homologar_campos(
         tabla_nomenclatura, "tipo_contabilidad", "tipo_contabilidad"
     )
 
+    transicion = obtener_homologacion(tabla_nomenclatura, "transicion", "transicion")
+
     df = (
         out_det_fluc.join(tipo_movimiento, on="tipo_movimiento", how="left")
         .join(periodo_movimiento, on="anio_liberacion", how="left")
@@ -135,6 +132,7 @@ def homologar_campos(
         .join(tipo_reasegurador, on="tipo_reasegurador", how="left")
         .join(compania, on="compania", how="left")
         .join(tipo_contabilidad, on="tipo_contabilidad", how="left")
+        .join(transicion, on="transicion", how="left")
         .with_columns(tipo_reserva=pl.lit("PCR_CP"))
     )
 

@@ -574,7 +574,7 @@ def prep_input_cartera(
             )
         )
         .pipe(aux_tools.agregar_cohorte_dinamico)
-        .pipe(aux_tools.etiquetar_transicion, fe_valoracion)
+        .pipe(aux_tools.etiquetar_transicion)
     )
 
 

@@ -320,7 +320,7 @@ def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
             .otherwise(pl.lit("anio_anterior"))
             .alias("anio_liberacion")
         )
-        .pipe(aux_tools.etiquetar_transicion, params.FECHA_VALORACION)
+        .pipe(aux_tools.etiquetar_transicion)
     )
 
     return data_devengo_out
