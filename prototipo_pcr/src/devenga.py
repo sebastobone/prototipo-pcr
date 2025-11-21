@@ -152,15 +152,17 @@ def deveng_cincuenta(
     Recibe un input preprocesado para devengo y devuelve el devengamiento segun las reglas del 50/50
     """
 
-    # se constituye solo si el mes de constitucion es menor o igual al mes de fin devengo
+    mes_fin_vigencia = aux_tools.yyyymm(pl.col('fecha_fin_devengo'))
     mes_constitucion = aux_tools.yyyymm(pl.col("fecha_constitucion"))
-    mes_fin_devengo = aux_tools.yyyymm(pl.col("fecha_fin_devengo"))
+    
+    entra_devengada = mes_constitucion > mes_fin_vigencia
+
     es_periodo_constit = (
         pl.col("fecha_constitucion") <= pl.col("fecha_valoracion")
     ) & (pl.col("fecha_inicio_periodo") <= pl.col("fecha_constitucion"))
     # aplica las condiciones para constituir
     output_deveng_cinq = input_deveng_cinq.with_columns(
-        pl.when((mes_constitucion <= mes_fin_devengo) & es_periodo_constit)
+        pl.when(es_periodo_constit)
         .then(pl.col("valor_base_devengo"))
         .otherwise(0.0)
         .alias("valor_constitucion")
@@ -169,33 +171,43 @@ def deveng_cincuenta(
     # libera solo a cierre de mes -> si no es cierre la norma me obliga a mantener el 50%
     es_cierre_mes = pl.lit(aux_tools.es_ultimo_dia_mes(fe_valoracion))
     # primera liberacion ocurre el max mes entre mes constitucion y mes inicio devengo
-    aux_fe_primera_lib = pl.max_horizontal(
-        [pl.col("fecha_constitucion"), pl.col("fecha_inicio_devengo")]
-    )
+    aux_fe_primera_lib = pl.col("fecha_inicio_devengo")
     mes_primera_lib = aux_tools.yyyymm(aux_fe_primera_lib)
     mes_segunda_lib = aux_tools.yyyymm(aux_fe_primera_lib.dt.offset_by("1mo"))
+
     mes_valoracion = aux_tools.yyyymm(pl.col("fecha_valoracion"))
-    cierre_anterior = pl.col("fecha_valoracion").dt.offset_by("-1mo").dt.month_end()
-    mes_anterior = aux_tools.yyyymm(cierre_anterior)
     # calcula la liberacion por meses
     lib_mes_actual = (
-        pl.when(
+        pl.when(entra_devengada)
+        .then(pl.col("valor_base_devengo"))
+        .when(
             ((mes_valoracion == mes_primera_lib) | (mes_valoracion == mes_segunda_lib))
             & es_cierre_mes
         )
         .then(pl.col("valor_base_devengo") * 0.5)
         .otherwise(0.0)
     )
-    lib_mes_anterior = (
+    # para conocer el saldo debo acumular la liberacion que solo se puede dar en max 2 periodos
+    lib_acumulada = (
         pl.when(
-            ((mes_anterior == mes_primera_lib) | (mes_anterior == mes_segunda_lib))
+            (mes_valoracion > mes_segunda_lib) | entra_devengada
+        )
+        .then(pl.col("valor_base_devengo"))
+        .when(
+            ((mes_valoracion == mes_segunda_lib) & es_cierre_mes)
+        )
+        .then(pl.col("valor_base_devengo"))
+        .when(
+            ((mes_valoracion == mes_segunda_lib) & ~es_cierre_mes)
+        )
+        .then(pl.col("valor_base_devengo") * 0.5)
+        .when(
+            (mes_valoracion == mes_primera_lib)
             & es_cierre_mes
         )
         .then(pl.col("valor_base_devengo") * 0.5)
         .otherwise(0.0)
     )
-    # para conocer el saldo debo acumular la liberacion que solo se puede dar en max 2 periodos
-    lib_acumulada = lib_mes_actual + lib_mes_anterior
     # el estado segun las fechas
     devengo_no_iniciado = pl.col("fecha_valoracion") < pl.col("fecha_constitucion")
     devengo_en_curso = (mes_primera_lib <= mes_valoracion) & (
