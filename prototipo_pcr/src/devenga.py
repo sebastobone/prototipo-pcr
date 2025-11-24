@@ -14,7 +14,9 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
     """
     output_deveng_diario = (
         input_deveng.with_columns(
-                pl.when(pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo"))
+                pl.when(pl.col("fecha_constitucion") > pl.col("fecha_fin_devengo"))
+                .then(pl.lit("entra_devengado"))
+                .when(pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo"))
                 .then(pl.lit("no_iniciado"))
                 .when(
                         # si ya inicio a devengar o le quedan dias por devengar esta en curso
@@ -23,8 +25,6 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
                         (pl.col("fecha_valoracion") < pl.col("fecha_fin_devengo"))
                 )
                 .then(pl.lit("en_curso"))
-                .when(pl.col("fecha_constitucion") > pl.col("fecha_fin_devengo"))
-                .then(pl.lit("entra_devengado"))
                 .otherwise(pl.lit("finalizado"))
                 .alias("estado_devengo")
         )
@@ -150,7 +150,7 @@ def deveng_cincuenta(
     mes_fin_vigencia = aux_tools.yyyymm(pl.col('fecha_fin_devengo'))
     mes_constitucion = aux_tools.yyyymm(pl.col("fecha_constitucion"))
     
-    entra_devengada = mes_constitucion > mes_fin_vigencia
+    entra_devengado = mes_constitucion > mes_fin_vigencia
 
     es_periodo_constit = (
         pl.col("fecha_constitucion") <= pl.col("fecha_valoracion")
@@ -173,10 +173,8 @@ def deveng_cincuenta(
     mes_valoracion = aux_tools.yyyymm(pl.col("fecha_valoracion"))
     # calcula la liberacion por meses
     lib_mes_actual = (
-        pl.when(entra_devengada & es_periodo_constit)
-        .then(pl.col("valor_base_devengo"))
-        .when(entra_devengada & ~es_periodo_constit)
-        .then(0.0)
+        pl.when(entra_devengado)
+        .then(pl.col("valor_base_devengo") * es_periodo_constit)
         .when(
             ((mes_valoracion == mes_primera_lib) | (mes_valoracion == mes_segunda_lib))
             & es_cierre_mes
@@ -187,7 +185,7 @@ def deveng_cincuenta(
     # para conocer el saldo debo acumular la liberacion que solo se puede dar en max 2 periodos
     lib_acumulada = (
         pl.when(
-            (mes_valoracion > mes_segunda_lib) | entra_devengada
+            (mes_valoracion > mes_segunda_lib) | entra_devengado
         )
         .then(pl.col("valor_base_devengo"))
         .when(
@@ -206,22 +204,20 @@ def deveng_cincuenta(
         .otherwise(0.0)
     )
     # el estado segun las fechas
-    devengo_no_iniciado = pl.col("fecha_valoracion") < pl.col("fecha_constitucion")
-    devengo_en_curso = (mes_primera_lib <= mes_valoracion) & (
-        mes_valoracion <= mes_segunda_lib
+    devengo_no_iniciado = pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo")
+    devengo_en_curso = (pl.col("fecha_inicio_devengo").dt.month_end() <= pl.col('fecha_valoracion')) & (
+        pl.col('fecha_valoracion') < pl.col("fecha_inicio_devengo").dt.offset_by('1mo').dt.month_end()
     )
-    devengo_finalizado = mes_valoracion > mes_segunda_lib
+
     output_deveng_cinq = (
         output_deveng_cinq.with_columns(
-            pl.when(entra_devengada)
-            .then(pl.lit('entra_devengado'))
+            pl.when(entra_devengado)
+            .then(pl.lit("entra_devengado"))
             .when(devengo_no_iniciado)
             .then(pl.lit("no_iniciado"))
             .when(devengo_en_curso)
             .then(pl.lit("en_curso"))
-            .when(devengo_finalizado)
-            .then(pl.lit("finalizado"))
-            .otherwise(pl.lit("revisar_estado"))
+            .otherwise(pl.lit("finalizado"))
             .alias("estado_devengo")
         )
         .with_columns(
