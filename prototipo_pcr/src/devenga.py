@@ -178,8 +178,10 @@ def deveng_cincuenta(
     mes_valoracion = aux_tools.yyyymm(pl.col("fecha_valoracion"))
     # calcula la liberacion por meses
     lib_mes_actual = (
-        pl.when(entra_devengada)
+        pl.when(entra_devengada & es_periodo_constit)
         .then(pl.col("valor_base_devengo"))
+        .when(entra_devengada & ~es_periodo_constit)
+        .then(0.0)
         .when(
             ((mes_valoracion == mes_primera_lib) | (mes_valoracion == mes_segunda_lib))
             & es_cierre_mes
