@@ -216,7 +216,9 @@ def deveng_cincuenta(
     devengo_finalizado = mes_valoracion > mes_segunda_lib
     output_deveng_cinq = (
         output_deveng_cinq.with_columns(
-            pl.when(devengo_no_iniciado)
+            pl.when(entra_devengada)
+            .then(pl.lit('entra_devengado'))
+            .when(devengo_no_iniciado)
             .then(pl.lit("no_iniciado"))
             .when(devengo_en_curso)
             .then(pl.lit("en_curso"))
