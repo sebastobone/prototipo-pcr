@@ -225,9 +225,9 @@ def test_pdn_anticipada_50_50_enero_marzo(
         dias_devengados=None,
         dias_no_devengados=None,
         constitucion=-prima,
-        liberacion=0,
-        liberacion_acum=0,
-        saldo=-prima,
+        liberacion=prima/2,
+        liberacion_acum=prima/2,
+        saldo=-prima/2,
     )
 
     cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
