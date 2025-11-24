@@ -120,7 +120,7 @@ def test_pdn_vencida_50_50_vigencia_entre_mes_niif17(
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
-        estado_devengo="en_curso",
+        estado_devengo="finalizado",
         dias_devengados=cf.diferencia_fechas_dias(
             fechas.fecha_fin_vigencia_cobertura,
             fechas.fecha_inicio_vigencia_cobertura,

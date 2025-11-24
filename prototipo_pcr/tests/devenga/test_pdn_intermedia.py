@@ -247,7 +247,7 @@ def test_pdn_valoracion_dia_finalizacion(
     dias_no_devengados = dias_vigencia - dias_devengados
 
     resultado_esperado = cf.ResultadosDevengo(
-        estado_devengo="en_curso",
+        estado_devengo="finalizado",
         dias_devengados=dias_devengados,
         dias_no_devengados=dias_no_devengados,
         constitucion=0,
