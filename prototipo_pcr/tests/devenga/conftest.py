@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
 import polars as pl
-from src import parametros as p
 import pytest
 
 
@@ -28,7 +27,7 @@ class ResultadosDevengo:
 
 
 def crear_input_devengo(
-    fechas: Fechas, tipo_insumo: str, tipo_negocio: str, prima: float
+    fechas: Fechas, tipo_insumo: str, tipo_negocio: str, prima: float, moneda: str = "COP"
 ) -> pl.DataFrame:
     """
     Crea un dataframe de entrada para la funcion de devengo.
@@ -45,6 +44,7 @@ def crear_input_devengo(
             "fecha_inicio_vigencia_cobertura": fechas.fecha_inicio_vigencia_cobertura,
             "fecha_fin_vigencia_cobertura": fechas.fecha_fin_vigencia_cobertura,
             "fecha_valoracion": fechas.fecha_valoracion,
+            "moneda": moneda,
             "valor_prima_emitida": [prima],
         }
     )
@@ -100,15 +100,3 @@ def validar_resultado_devengo(
     assert resultado_devengo.saldo == pytest.approx(
         resultado_esperado.saldo
     ), "Saldo incorrecto"
-
-
-@pytest.fixture
-def param_contabilidad() -> pl.DataFrame:
-    return pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_PARAMETROS_CONTAB).filter(
-        pl.col("estado_insumo") == 1
-    )
-
-
-@pytest.fixture
-def excepciones_df() -> pl.DataFrame:
-    return pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_EXCEPCIONES_50_50)

@@ -351,6 +351,7 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
             # define fecha cierre anterior para el delta
             pl.col("fecha_valoracion")
             .dt.offset_by("-1mo")
+            .dt.month_end()
             .alias("fecha_valoracion_anterior")
         )
     )

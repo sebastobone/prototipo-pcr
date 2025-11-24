@@ -182,7 +182,7 @@ def cruzar_tasas_cambio(
     ]
     tasa_join = [
         """LEFT JOIN tasas_cambio AS tfval_ant
-            ON base.fecha_fin_devengo = tfval_ant.fecha
+            ON base.fecha_valoracion_anterior = tfval_ant.fecha
             AND base.moneda = tfval_ant.moneda_origen""",
         """LEFT JOIN tasas_cambio AS tconst
             ON base.fecha_constitucion = tconst.fecha
