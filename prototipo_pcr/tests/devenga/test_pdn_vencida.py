@@ -285,7 +285,7 @@ def test_pdn_vencida_50_50_enero_marzo_2(
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
-        estado_devengo="en_curso",
+        estado_devengo="finalizado",
         dias_devengados=None,
         dias_no_devengados=None,
         constitucion=0,
