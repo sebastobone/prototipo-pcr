@@ -14,24 +14,19 @@ def deveng_diario(input_deveng: pl.DataFrame) -> pl.DataFrame:
     """
     output_deveng_diario = (
         input_deveng.with_columns(
-            (
                 pl.when(pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo"))
                 .then(pl.lit("no_iniciado"))
-                .otherwise(
-                    pl.when(
+                .when(
                         # si ya inicio a devengar o le quedan dias por devengar esta en curso
                         (pl.col("fecha_inicio_devengo") <= pl.col("fecha_valoracion"))
-                        & (
-                            pl.col("fecha_inicio_periodo")
-                            <= pl.col("fecha_fin_devengo")
-                        )
-                    )
-                    .then(pl.lit("en_curso"))
-                    .when(pl.col("fecha_constitucion") > pl.col("fecha_fin_devengo"))
-                    .then(pl.lit("entra_devengado"))
-                    .otherwise(pl.lit("finalizado"))
+                        & 
+                        (pl.col("fecha_valoracion") < pl.col("fecha_fin_devengo"))
                 )
-            ).alias("estado_devengo")
+                .then(pl.lit("en_curso"))
+                .when(pl.col("fecha_constitucion") > pl.col("fecha_fin_devengo"))
+                .then(pl.lit("entra_devengado"))
+                .otherwise(pl.lit("finalizado"))
+                .alias("estado_devengo")
         )
         .with_columns(
             aux_tools.calcular_dias_diferencia(
