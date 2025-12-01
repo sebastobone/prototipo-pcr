@@ -92,6 +92,7 @@ def cruzar_gastos_expedicion(
         cruce AS (
             SELECT 
                 prod.*,
+                g.tipo_contabilidad,
                 g.tipo_gasto,
                 g.porc_gasto,
                 g.prioridad_match,
@@ -103,7 +104,8 @@ def cruzar_gastos_expedicion(
                         prod.poliza_certificado,
                         prod.recibo,
                         prod.amparo,
-                        g.tipo_gasto
+                        g.tipo_gasto,
+                        g.tipo_contabilidad
                     ORDER BY g.prioridad_match
                 ) AS rn
             FROM produccion AS prod
