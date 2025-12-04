@@ -104,6 +104,7 @@ def cruzar_gastos_expedicion(
                         prod.poliza_certificado,
                         prod.recibo,
                         prod.amparo,
+                        prod.cdsubgarantia,
                         g.tipo_gasto,
                         g.tipo_contabilidad
                     ORDER BY g.prioridad_match
