@@ -76,6 +76,71 @@ def cruzar_gastos_expedicion(
     en este cruce aparezcan todas las combinaciones de la prima con tipo_contabilidad.
     Evita duplicados usando prioridad de coincidencia para usar comodines correctamente
     """
+    validacion = duckdb.sql("""
+        WITH gastos_priorizados AS (
+            SELECT
+                g.*,
+                CASE 
+                    WHEN canal <> '*' AND producto <> '*' THEN 1
+                    WHEN canal <> '*' AND producto = '*' THEN 2
+                    WHEN canal = '*' AND producto = '*' THEN 3
+                END AS prioridad_match
+            FROM gastos g
+        ),
+        cruce AS (
+            SELECT 
+                prod.*,
+                g.tipo_contabilidad,
+                g.tipo_gasto,
+                g.porc_gasto,
+                g.prioridad_match,
+                ROW_NUMBER() OVER (
+                    PARTITION BY 
+                        prod.tipo_op,
+                        prod.tipo_insumo,
+                        prod.poliza,
+                        prod.poliza_certificado,
+                        prod.recibo,
+                        prod.amparo,
+                        prod.cdsubgarantia,
+                        prod.numero_documento_sap,
+                        g.tipo_gasto,
+                        g.tipo_contabilidad
+                    ORDER BY g.prioridad_match
+                ) AS rn
+            FROM produccion AS prod
+            JOIN gastos_priorizados AS g
+                ON prod.compania = g.compania
+                AND prod.ramo_sura = g.ramo_sura
+                AND (prod.canal = g.canal OR g.canal = '*')
+                AND (prod.producto = g.producto OR g.producto = '*')
+                AND prod.fecha_expedicion_poliza BETWEEN g.fecha_inicio AND g.fecha_fin
+        ),
+        tamaños AS (
+            SELECT 
+                tipo_gasto,
+                COUNT(*) AS rows_in_partition
+            FROM cruce
+            GROUP BY 
+                tipo_op,
+                tipo_insumo,
+                poliza,
+                poliza_certificado,
+                recibo,
+                amparo,
+                cdsubgarantia,
+                tipo_gasto,
+                numero_documento_sap
+        )
+        SELECT 
+            rows_in_partition,
+            LIST(DISTINCT tipo_gasto) AS tipo_gasto_unicos
+        FROM tamaños
+        GROUP BY rows_in_partition
+        ORDER BY rows_in_partition;
+    """)
+    #print(validacion)
+
     # El cruce debe ser por fecha expedición póliza y no por fecha de contabilización
     return duckdb.sql("""
         -- prioridad de cruce por comodin para evitar duplicados
@@ -98,6 +163,7 @@ def cruzar_gastos_expedicion(
                 g.prioridad_match,
                 ROW_NUMBER() OVER (
                     PARTITION BY 
+                        prod.numero_documento_sap,
                         prod.tipo_op,
                         prod.tipo_insumo,
                         prod.poliza,
