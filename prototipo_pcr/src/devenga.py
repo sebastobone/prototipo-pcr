@@ -205,7 +205,7 @@ def deveng_cincuenta(
     )
     # el estado segun las fechas
     devengo_no_iniciado = pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo")
-    devengo_en_curso = (pl.col("fecha_inicio_devengo").dt.month_end() <= pl.col('fecha_valoracion')) & (
+    devengo_en_curso = (pl.col("fecha_inicio_devengo") <= pl.col('fecha_valoracion')) & (
         pl.col('fecha_valoracion') < pl.col("fecha_inicio_devengo").dt.offset_by('1mo').dt.month_end()
     )
 
