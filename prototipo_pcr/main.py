@@ -163,15 +163,15 @@ def input_directo(ramo: str):
     mapping_sociedad = {'1000': '01', '2000': '02'}
     df = (df.select(
         ["tipo_insumo", "tipo_negocio", "npoliza", "fecha_expedicion_poliza", "nrecibo", "cdgarantia", 
-         "cdsubgarantia", "ncertificado", "sociedad", "cdramo_contable", "canal", "cdsubramo_recibo", 
-         "operacion", "moneda_documento", "fecha_contable_documento", "feini_vigencia_recibo", 
-         "fefin_vigencia_recibo", "feini_vigencia_cobertura", "fefin_vigencia_cobertura", 
-         "importe_moneda_documento_dist"])
+         "cdsubgarantia", "ncertificado", "numero_documento_contable", "sociedad", "cdramo_contable", 
+         "canal", "cdsubramo_recibo", "operacion", "moneda_documento", "fecha_contable_documento", 
+         "feini_vigencia_recibo", "fefin_vigencia_recibo", "feini_vigencia_cobertura",
+         "fefin_vigencia_cobertura", "importe_moneda_documento_dist"])
         .with_columns(df['sociedad'].replace(mapping_sociedad).alias('compania'))
         .drop('sociedad')
         .rename({"npoliza": "poliza", "nrecibo": "recibo", "cdgarantia": "amparo",
                  "ncertificado": "poliza_certificado", "cdramo_contable": "ramo_sura",
-                 "cdsubramo_recibo": "producto", "operacion": "tipo_op",
+                 "cdsubramo_recibo": "producto", "operacion": "tipo_op", 'numero_documento_contable': 'numero_documento_sap',
                  "moneda_documento": "moneda", "fecha_contable_documento": "fecha_contabilizacion_recibo", 
                  "feini_vigencia_recibo": "fecha_inicio_vigencia_recibo",
                  "fefin_vigencia_recibo": "fecha_fin_vigencia_recibo",
@@ -187,7 +187,8 @@ def input_dcto_directo(ramo: str):
     mapping_sociedad = {'1000': '01', '2000': '02'}
     df = (df.select([
         "sociedad", "cdramo_contable", "npoliza", "nrecibo", "cdgarantia", "cdsubgarantia", 
-        "ncertificado", "podescuento_tecnico", "podescuento_comercial"
+        "ncertificado", "numero_documento_contable", "canal", "cdsubramo_recibo", "operacion",
+        "podescuento_tecnico", "podescuento_comercial"
         ])
             .with_columns([
                 df['sociedad'].replace(mapping_sociedad).alias('compania'),
@@ -198,12 +199,14 @@ def input_dcto_directo(ramo: str):
             .drop('sociedad')
             .rename({"cdramo_contable": "ramo_sura", "npoliza": "poliza", "nrecibo": "recibo", 
                      "cdgarantia": "amparo", "ncertificado": "poliza_certificado", 
-                     "podescuento_tecnico": "podto_tecnico", "podescuento_comercial": "podto_comercial"})
+                     "numero_documento_contable": "numero_documento_sap", "cdsubramo_recibo": "producto",
+                     "operacion": "tipo_op", "podescuento_tecnico": "podto_tecnico", 
+                     "podescuento_comercial": "podto_comercial"})
         )
     return df
 
 def output_tecnologia(ramo: str, polizas: list[str], recibos: list[str]):
-    ruta = r"C:/Users/samuarta/Seguros Suramericana, S.A/EGVFAM - ifrs17_col/salidasdll/pruebitas_gestion_tecnica/data/output/*.parquet"
+    ruta = fr"C:/Users/samuarta/Seguros Suramericana, S.A/EGVFAM - ifrs17_col/salidasdll/pruebitas_gestion_tecnica/data/output/{ramo}_*202501.parquet"
     files = glob.glob(ruta)
 
     lfs = []
@@ -236,10 +239,10 @@ def outer_join(
         .rename({c: c + suffix_right for c in exclude_cols})
     )
 
-    # 4. Columnas del join = todas menos excluidas
+    # 3. Columnas del join = todas menos excluidas
     join_cols = [c for c in cols_left_keep if c not in exclude_cols]
     
-    # 5. Hacer el join
+    # 4. Hacer el join
     df_joined = df_left.join(
         df_right,
         on=join_cols,
@@ -247,17 +250,15 @@ def outer_join(
         nulls_equal=True,
     )
 
-    # 6. Construir lista final de columnas
+    # 5. Construir lista final de columnas
     final_cols = []
 
     for col in cols_left_keep:
+        # columna original del left
+        final_cols.append(col)
         if col in exclude_cols:
-            # columna original del left
-            final_cols.append(col)
             # versión renombrada del right
             final_cols.append(col + suffix_right)
-        else:
-            final_cols.append(col)
 
     return df_joined.fill_null(0)
 
@@ -272,9 +273,9 @@ def comparar_pcr_chunked(
     print(f"Procesando {total_registros} registros del Ramo {ramo}, en {num_chunks} chunks de {chunk_size} filas...")
 
     cols_left_keep = [
-        'tipo_insumo', 'tipo_negocio', 'poliza', 'fecha_expedicion_poliza', 'recibo', 
-        'amparo', 'cdsubgarantia', 'poliza_certificado', 'ramo_sura', 'canal', 'producto', 'moneda',
-        'tipo_op', 'fecha_inicio_vigencia_recibo', 
+        'tipo_insumo', 'tipo_negocio', 'poliza','fecha_expedicion_poliza', 
+        'recibo', 'amparo', 'cdsubgarantia', 'poliza_certificado', 'ramo_sura', 'canal', 'producto', 
+        'moneda', 'tipo_op', 'numero_documento_sap', 'fecha_inicio_vigencia_recibo', 'fecha_contabilizacion_recibo',
         'fecha_fin_vigencia_recibo', 'fecha_inicio_vigencia_cobertura', 
         'fecha_fin_vigencia_cobertura', 'valor_md', 'valor_ml', 'tipo_movimiento_codigo', 
         'indicativo_periodo_movimiento_codigo', 'concepto_codigo', 
@@ -286,7 +287,7 @@ def comparar_pcr_chunked(
     cols_right_keep = [
         'tipo_insumo', 'tipo_negocio', 'poliza', 'fecha_expedicion_poliza', 'recibo', 'garantia', 
         'subgarantia', 'poliza_certificado', 'ramo_sura', 'canal', 'producto', 'moneda_documento', 
-        'tipo_op', 'fecha_inicio_vigencia_recibo', 
+        'tipo_op', 'numero_documento_sap', 'fecha_inicio_vigencia_recibo', 'fecha_contabilizacion_recibo',
         'fecha_fin_vigencia_recibo', 'fecha_inicio_vigencia_cobertura', 
         'fecha_fin_vigencia_cobertura', 'valor_md', 'valor_ml', 'tipo_movimiento_codigo', 
         'indicativo_periodo_movimiento_codigo', 'concepto_codigo', 'clasificacion_adicional_codigo',
@@ -302,9 +303,9 @@ def comparar_pcr_chunked(
         "moneda_documento": "moneda"
     }
 
-    exclude_cols = ['valor_md', 'valor_ml']
+    exclude_cols = ['valor_md', 'valor_ml', 'tipo_negocio', "tipo_negocio_codigo"]
     registros_output = 0
-    #resultados_contables = []
+    resultados_duplicados = []
     resultados_join = []
     resumenes = []
 
@@ -315,7 +316,6 @@ def comparar_pcr_chunked(
 
         # Filtrar bloque de producción
         chunk_prod = produccion_dir.slice(start, end - start)
-        #print(chunk_prod.filter((pl.col('poliza') == '009000017311') & (pl.col('recibo') == "7862128")))
 
         # Filtrar descuentos por polizas del bloque
         polizas_chunk = chunk_prod.get_column("poliza").unique()
@@ -330,14 +330,13 @@ def comparar_pcr_chunked(
         ]
         
         input_consolidado = pl.concat(aux_tools.alinear_esquemas(insumos_devengo), how="diagonal")
-        #print(input_consolidado.filter((pl.col('poliza') == '009000017311') & (pl.col('recibo') == "7862128")))
 
         # --- Devengo + fluctuación ---
         output_devengo_fluct = (
             devg.devengar(input_consolidado, FECHA_VALORACION)
             .pipe(fluc.calc_fluctuacion, tasa_cambio)
         )
-        #print(output_devengo_fluct.filter(pl.col('poliza') == "012002210058"))
+
         # --- Insumos no devengables ---
         insumos_no_devengo = [
             prep_data.prep_input_cartera(cartera, param_contab, FECHA_VALORACION),
@@ -355,18 +354,20 @@ def comparar_pcr_chunked(
         ).filter(
             (~pl.col("poliza").cast(pl.Utf8).is_in(excluir)) & pl.col("poliza").is_not_null()
         )
-        #print(output_contable)
+        #output_contable.write_clipboard()
         registros_output += len(output_contable)
+        print(output_contable.is_duplicated().sum())
         #resultados_contables.append(output_contable)
 
         # --- Join con tecnología ---
         df_tecnologia = output_tecnologia(ramo=ramo, polizas=polizas_chunk, recibos=recibos_chunk)
-        print(len(df_tecnologia))
-        #df_tecnologia.write_clipboard()
+        print(df_tecnologia.is_duplicated().sum(), len(df_tecnologia))
+        resultados_duplicados.append(df_tecnologia.filter(df_tecnologia.is_duplicated()))
+
         df_join = outer_join(
             output_contable, df_tecnologia, cols_left_keep, 
             cols_right_keep, exclude_cols, col_mapping,
-            suffix_right="_Tecnología", type="left"
+            suffix_right="_Tecnología", type="full"
         )
 
         df_result = (
@@ -374,14 +375,16 @@ def comparar_pcr_chunked(
             .with_columns([
                 (pl.col("valor_md") - pl.col("valor_md_Tecnología")).alias("diff_md"),
                 (pl.col("valor_ml") - pl.col("valor_ml_Tecnología")).alias("diff_ml"),
-                ((pl.col("valor_md") - pl.col("valor_md_Tecnología")).abs() > 1e-3).cast(pl.Int8).alias("alerta_md"),
-                ((pl.col("valor_ml") - pl.col("valor_ml_Tecnología")).abs() > 1e-3).cast(pl.Int8).alias("alerta_ml"),
+                ((pl.col("valor_md") - pl.col("valor_md_Tecnología")).abs() > 1e-6).cast(pl.Int8).alias("alerta_md"),
+                ((pl.col("valor_ml") - pl.col("valor_ml_Tecnología")).abs() > 1e-6).cast(pl.Int8).alias("alerta_ml"),
             ])
         )
 
         resumen = df_result.select(
-            pl.col("alerta_md").mean().alias("Tasa_alerta_md"),
-            pl.col("alerta_ml").mean().alias("Tasa_alerta_ml")
+            pl.col("alerta_md").mean().alias("tasa_alerta_md"),
+            pl.col("alerta_md").sum().alias("cantidad_alerta_md"),
+            pl.col("alerta_ml").mean().alias("tasa_alerta_ml"),
+            pl.col("alerta_ml").sum().alias("cantidad_alerta_ml")
         )
         resumenes.append(resumen)
         resultados_join.append(df_result)#.filter((pl.col('alerta_md') > 0) | (pl.col('alerta_ml') > 0)))
@@ -395,7 +398,7 @@ def comparar_pcr_chunked(
     #output_contable_final = pl.concat(resultados_contables, how="diagonal_relaxed")
     df_join_final = pl.concat(resultados_join, how="diagonal_relaxed")
     resumen_final = pl.concat(resumenes, how="diagonal_relaxed")
-    print(resumen_final)
+    print(resumen_final.to_pandas())
     print(registros_output)
     return resumen_final, df_join_final
 
@@ -409,34 +412,22 @@ def comparar_pcr(ramo: str, chunk_size: int = 50000):
 
     gasto = pl.read_excel(RUTA_GASTOS, infer_schema_length=5000)
     tasa_cambio = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_MONEDA)
-
-    descuentos = input_dcto_directo(ramo=ramo)
     
     input_map_bts = pl.read_excel(p.RUTA_REL_BT, infer_schema_length=2000).filter(~pl.col("clasificacion_adicional").is_in(["MAT", "REC"]))
     input_tipo_seguro = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_TIPO_SEGURO)
     tabla_nomenclatura = pl.read_excel(p.RUTA_NOMENCLATURA, sheet_name="V2")
     produccion_dir = input_directo(ramo=ramo)
+    descuentos = input_dcto_directo(ramo=ramo)
 
     cesion_rea = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_CESION)
     comision_rea = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_COMISION_REA)
     costo_contrato_rea = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_COSTO_CONTRATO)
     seguimiento_rea = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_SEGUIMIENTO_REA)
-    produccion_arl = pl.read_excel(p.RUTA_PRODUCCION_ARL)
-    costo_contrato_arl = pl.read_excel(p.RUTA_COSTO_CONTRATO_ARL)
     onerosidad = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
     recup_onerosidad = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
     riesgo_credito = pl.read_excel(p.RUTA_RIESGO_CREDITO)
     cartera = pl.read_excel(RUTA_INSUMOS, sheet_name=p.HOJA_CARTERA)
-    cartera_arl = pl.read_excel(p.RUTA_CARTERA_ARL)
     cuenta_corriente = pl.read_excel(p.RUTA_CUENTA_CORRIENTE)
-    cuenta_corriente_arl = pl.read_excel(p.RUTA_CUENTA_CORRIENTE_ARL)
-
-    # --- Ajustes ARL ---
-    produccion_arl_prep = prep_data.prep_input_produccion_arl(produccion_arl)
-    produccion_dir = pl.concat([produccion_dir, produccion_arl_prep], how="diagonal_relaxed")
-    costo_contrato_rea = pl.concat([costo_contrato_rea, costo_contrato_arl], how="diagonal_relaxed")
-    cartera = pl.concat([cartera, cartera_arl.with_columns(fecha_expedicion_poliza=pl.col("mes_cotizacion").dt.month_start())], how="diagonal_relaxed")
-    cuenta_corriente = pl.concat([cuenta_corriente, cuenta_corriente_arl], how="diagonal_relaxed")
 
     # Llamada al procesamiento por bloques (chunked) 
     return comparar_pcr_chunked(
@@ -450,36 +441,39 @@ def comparar_pcr(ramo: str, chunk_size: int = 50000):
     )
 
 if __name__ == "__main__":
-    """
     # Procesar un ramo por bloques (chunks)
-    tasa_alertas, registros_diferencia = comparar_pcr("025", chunk_size=40000)
-    registros_diferencia.filter(pl.col('alerta_md') == 1).write_clipboard()
-    """ 
+    
+    tasa_alertas, registros_diferencia = comparar_pcr("183", chunk_size=30000)
+    #registros_diferencia.write_clipboard()
+    """
     import pandas as pd 
     import polars as pl
+    ramos_no_procesables = [
+        '025', '040', '081', '093', '190', '191', '193', '196' 
+        ]
     # Procesar todos los ramos
-    ramos = [
-        '003', '006', '007', '009', '010', '011', '012', '013', '015', '017', '019', 
-        '020', '021', '024', '028', '031', '032', '033', '034', '039', '040', '069', 
-        '081', '085', '086', '092', '093', '095', '096', '109', '128', '130', '132', 
-        '133', '134', '139', '181', '190', '191', '193',
+    ramos_pequenos_25000 = [
+        '003', '006', '007', '009', '010', '011', '015', '017', '019', '020', '021',
+        '024', '032', '033', '034', '039', '069', '085', '092', '095', '096', '109', 
+        '132', '133', '134', '139', '181'
         ]
     ramos_grandes = [
-        '025', '030', '041', '083', '084', '090', '091', '183', 'AAV'
-    ]
+        '012', '013', '028', '030', '031', '041', '083', '084', '086', '090', '091', 
+        '128', '130', '183', 'AAV'
+        ]
     resumen_list = []
     diferencias_dict = {}
 
-    for ramo in ramos:
+    for ramo in ramos_grandes:
         try:
-            tasa_alertas, registros_diferencia = comparar_pcr(ramo, chunk_size=30000)
+            tasa_alertas, registros_diferencia = comparar_pcr(ramo, chunk_size=40000)
 
             # Agregar columna ramo
             tasa_alertas = tasa_alertas.with_columns(pl.lit(ramo).alias("ramo"))
             resumen_list.append(tasa_alertas)
 
             # Guardar primeros N registros
-            diferencias_dict[ramo] = registros_diferencia.filter(pl.col('alerta_md') == 1).head(5000)
+            diferencias_dict[ramo] = registros_diferencia.filter(pl.col('alerta_md') == 1).head(30000)
 
         except Exception as e:
             print(f"Error en ramo {ramo}: {e}")
@@ -488,8 +482,9 @@ if __name__ == "__main__":
         resumen_df = pl.concat(resumen_list)
 
         # Exportar a Excel
-        with pd.ExcelWriter(r"C:/Users/samuarta/Proyectos/prototipo-pcr/prototipo_pcr/output/Resultados_Comparacion.xlsx", engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(r"C:/Users/samuarta/Proyectos/prototipo-pcr/prototipo_pcr/output/Resultados_Comparacion_Ramos_Grandes.xlsx", engine="xlsxwriter") as writer:
             resumen_df.to_pandas().to_excel(writer, sheet_name="Resumen", index=False)
 
             for ramo, df in diferencias_dict.items():
                 df.to_pandas().to_excel(writer, sheet_name=str(ramo)[:31], index=False)
+    """
