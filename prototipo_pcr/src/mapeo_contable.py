@@ -88,6 +88,19 @@ def pivotear_output(
             .otherwise(pl.col("anio_liberacion"))
             .alias("anio_liberacion")
         )
+        .with_columns(
+            pl.when(
+                pl.col("tipo_movimiento").is_in(
+                    [
+                        "fluctuacion_constitucion", 
+                        "fluctuacion_liberacion"
+                    ]
+                )
+            )
+            .then(pl.lit(0))
+            .otherwise(pl.col("valor_md"))
+            .alias("valor_md")
+        )
     )
 
 
