@@ -62,9 +62,12 @@ def cruzar_descuento(
                 AND prod.poliza = dcto.poliza
                 AND prod.recibo = dcto.recibo{suffix_rea}
                 AND prod.poliza_certificado = dcto.poliza_certificado
+                AND prod.amparo = dcto.amparo
+                AND prod.tipo_op = dcto.tipo_op
+                AND prod.producto = dcto.producto
+                AND prod.numero_documento_sap = dcto.numero_documento_sap
         """
     ).pl()
-
 
 # Cruza produccion y gastos segun el nivel de detalle encontrado en la tabla gasto
 def cruzar_gastos_expedicion(
