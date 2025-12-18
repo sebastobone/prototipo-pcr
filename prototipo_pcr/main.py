@@ -205,7 +205,9 @@ def input_dcto_directo(ramo: str):
         )
     return df
 
-def output_tecnologia(ramo: str, polizas: list[str], recibos: list[str]):
+def output_tecnologia(
+        ramo: str, polizas: list[str], recibos: list[str]
+):
     ruta = fr"C:/Users/samuarta/Seguros Suramericana, S.A/EGVFAM - ifrs17_col/salidasdll/pruebitas_gestion_tecnica/data/output/{ramo}_*202501.parquet"
     files = glob.glob(ruta)
 
@@ -262,6 +264,69 @@ def outer_join(
 
     return df_joined.fill_null(0)
 
+def aplicar_asistencia(
+    df_output_contable: pl.DataFrame,
+) -> pl.DataFrame:
+    path_asist = r"C:\Users\samuarta\Proyectos\prototipo-pcr\prototipo_pcr\inputs\maestro_asistencias.xlsx"
+    renombrar = {
+        "CDRAMO": "ramo_sura",
+        "CDSUBRAMO": "producto",
+        "CDGARANTIA": "amparo",
+        "CDSUBGARANTIA": "cdsubgarantia",
+    }
+    columnas_join = [
+        "ramo_sura", "producto", "amparo", "cdsubgarantia"
+    ]
+
+    df_asist = (
+        pl.read_excel(path_asist)
+        .filter(pl.col("DSALIAS_2").str.contains("ASIST"))
+        .rename(renombrar)
+        .select(columnas_join)
+        .unique()
+        .with_columns(pl.lit(True).alias("_es_asistencia"))
+        .lazy()
+    )
+
+    df_out = df_output_contable.lazy()
+
+    df_join = (
+        df_out.join(
+            df_asist,
+            on=columnas_join,
+            how="left",
+        ).with_columns([
+            pl.when(
+                pl.col("_es_asistencia").fill_null(False) &
+                (
+                    pl.col("bt").str.ends_with("1099") |
+                    pl.col("bt").str.ends_with("3100") |
+                    pl.col("bt").str.ends_with("3101")
+                )
+            ).then(
+                pl.lit("Asistencia")
+            ).otherwise(
+                pl.col("tipo_negocio")
+            ).alias("tipo_negocio"),
+            
+            pl.when(
+                pl.col("_es_asistencia").fill_null(False) &
+                (
+                    pl.col("bt").str.ends_with("1099") |
+                    pl.col("bt").str.ends_with("3100") |
+                    pl.col("bt").str.ends_with("3101")
+                )
+            ).then(
+                pl.lit("S")
+            ).otherwise(
+                pl.col("tipo_negocio_codigo")
+            ).alias("tipo_negocio_codigo"),
+        ])
+        .drop("_es_asistencia")
+    )
+
+    return df_join.collect()
+
 def comparar_pcr_chunked(
         ramo: str, chunk_size: int, produccion_dir: pl.DataFrame, descuentos: pl.DataFrame, param_contab,
         excepciones, gasto, onerosidad, cesion_rea, comision_rea, costo_contrato_rea, seguimiento_rea,
@@ -303,9 +368,9 @@ def comparar_pcr_chunked(
         "moneda_documento": "moneda"
     }
 
-    exclude_cols = ['valor_md', 'valor_ml', 'tipo_negocio', "tipo_negocio_codigo"]
+    exclude_cols = ['valor_md', 'valor_ml']#, "tipo_negocio", "tipo_negocio_codigo"]
     registros_output = 0
-    resultados_duplicados = []
+    resultados_asistencia = []
     resultados_join = []
     resumenes = []
 
@@ -353,30 +418,29 @@ def comparar_pcr_chunked(
             insumos_no_devengo,
         ).filter(
             (~pl.col("poliza").cast(pl.Utf8).is_in(excluir)) & pl.col("poliza").is_not_null()
-        )
+        ).pipe(aplicar_asistencia)
         #output_contable.write_clipboard()
         registros_output += len(output_contable)
-        print(output_contable.is_duplicated().sum())
+        print(f"Duplicados en el Output Contable del Prototipo: {output_contable.is_duplicated().sum()}")
         #resultados_contables.append(output_contable)
 
         # --- Join con tecnología ---
         df_tecnologia = output_tecnologia(ramo=ramo, polizas=polizas_chunk, recibos=recibos_chunk)
-        print(df_tecnologia.is_duplicated().sum(), len(df_tecnologia))
-        resultados_duplicados.append(df_tecnologia.filter(df_tecnologia.is_duplicated()))
-
+        print(f"Duplicados en el Output Contable del Motor: {df_tecnologia.is_duplicated().sum()}")
+        print(f"Longitud del Output Contable del Motor: {len(df_tecnologia)}")
+        
         df_join = outer_join(
             output_contable, df_tecnologia, cols_left_keep, 
             cols_right_keep, exclude_cols, col_mapping,
-            suffix_right="_Tecnología", type="full"
+            suffix_right="_tecnologia", type="left"
         )
-
         df_result = (
             df_join
             .with_columns([
-                (pl.col("valor_md") - pl.col("valor_md_Tecnología")).alias("diff_md"),
-                (pl.col("valor_ml") - pl.col("valor_ml_Tecnología")).alias("diff_ml"),
-                ((pl.col("valor_md") - pl.col("valor_md_Tecnología")).abs() > 1e-6).cast(pl.Int8).alias("alerta_md"),
-                ((pl.col("valor_ml") - pl.col("valor_ml_Tecnología")).abs() > 1e-6).cast(pl.Int8).alias("alerta_ml"),
+                (pl.col("valor_md") - pl.col("valor_md_tecnologia")).alias("diff_md"),
+                (pl.col("valor_ml") - pl.col("valor_ml_tecnologia")).alias("diff_ml"),
+                ((pl.col("valor_md") - pl.col("valor_md_tecnologia")).abs() > 1e-6).cast(pl.Int8).alias("alerta_md"),
+                ((pl.col("valor_ml") - pl.col("valor_ml_tecnologia")).abs() > 1e-6).cast(pl.Int8).alias("alerta_ml"),
             ])
         )
 
@@ -387,8 +451,10 @@ def comparar_pcr_chunked(
             pl.col("alerta_ml").sum().alias("cantidad_alerta_ml")
         )
         resumenes.append(resumen)
-        resultados_join.append(df_result)#.filter((pl.col('alerta_md') > 0) | (pl.col('alerta_ml') > 0)))
-        
+        resultados_join.append(df_result.filter((pl.col('alerta_md') > 0) | (pl.col('alerta_ml') > 0)))
+        resultados_asistencia.append(df_result.filter((pl.col('tipo_negocio') == "Asistencia"))
+        )
+
         del chunk_prod, chunk_desc, input_consolidado, output_devengo_fluct, 
         del output_contable, df_tecnologia, df_join, df_result, resumen
         gc.collect()
@@ -398,9 +464,10 @@ def comparar_pcr_chunked(
     #output_contable_final = pl.concat(resultados_contables, how="diagonal_relaxed")
     df_join_final = pl.concat(resultados_join, how="diagonal_relaxed")
     resumen_final = pl.concat(resumenes, how="diagonal_relaxed")
+    asistencia = pl.concat(resultados_asistencia, how="diagonal_relaxed") 
     print(resumen_final.to_pandas())
-    print(registros_output)
-    return resumen_final, df_join_final
+    print(f"Total Registros Output Prototipo: {registros_output}")
+    return resumen_final, df_join_final, asistencia, registros_output
 
 def comparar_pcr(ramo: str, chunk_size: int = 50000):
     # --- Lectura de insumos ---
@@ -442,12 +509,15 @@ def comparar_pcr(ramo: str, chunk_size: int = 50000):
 
 if __name__ == "__main__":
     # Procesar un ramo por bloques (chunks)
-    
-    tasa_alertas, registros_diferencia = comparar_pcr("183", chunk_size=30000)
-    #registros_diferencia.write_clipboard()
-    """
+    #tasa_alertas, registros_diferencia, asistencia = comparar_pcr("083", chunk_size=40000)
+    #print(asistencia.height)
+    #asistencia.write_clipboard()
+
+    #"""
     import pandas as pd 
     import polars as pl
+    import glob
+
     ramos_no_procesables = [
         '025', '040', '081', '093', '190', '191', '193', '196' 
         ]
@@ -457,23 +527,28 @@ if __name__ == "__main__":
         '024', '032', '033', '034', '039', '069', '085', '092', '095', '096', '109', 
         '132', '133', '134', '139', '181'
         ]
-    ramos_grandes = [
-        '012', '013', '028', '030', '031', '041', '083', '084', '086', '090', '091', 
-        '128', '130', '183', 'AAV'
+    ramos_grandes_1 = [
+        '012', '013', '028', '030', '031', '041', '083', '084'
+        ]
+    ramos_grandes_2 = [
+        '086', '090', '091', '128', '130', '183', 'AAV'
         ]
     resumen_list = []
+    tamannos_output = []
     diferencias_dict = {}
+    asistencias_dict = {}
 
-    for ramo in ramos_grandes:
+    for ramo in ramos_grandes_1:
         try:
-            tasa_alertas, registros_diferencia = comparar_pcr(ramo, chunk_size=40000)
-
+            tasa_alertas, registros_diferencia, asistencia, tot_registros = comparar_pcr(ramo, chunk_size=40000)
+            print(f"Cantidad de Registros de Asistencia {asistencia.height}")
             # Agregar columna ramo
             tasa_alertas = tasa_alertas.with_columns(pl.lit(ramo).alias("ramo"))
             resumen_list.append(tasa_alertas)
 
             # Guardar primeros N registros
-            diferencias_dict[ramo] = registros_diferencia.filter(pl.col('alerta_md') == 1).head(30000)
+            diferencias_dict[ramo] = registros_diferencia.filter(pl.col('alerta_ml') == 1).head(30000)
+            asistencias_dict[ramo] = asistencia.head(30000)
 
         except Exception as e:
             print(f"Error en ramo {ramo}: {e}")
@@ -481,10 +556,29 @@ if __name__ == "__main__":
         # Concatenar todos los tasa_alertas
         resumen_df = pl.concat(resumen_list)
 
-        # Exportar a Excel
-        with pd.ExcelWriter(r"C:/Users/samuarta/Proyectos/prototipo-pcr/prototipo_pcr/output/Resultados_Comparacion_Ramos_Grandes.xlsx", engine="xlsxwriter") as writer:
-            resumen_df.to_pandas().to_excel(writer, sheet_name="Resumen", index=False)
+        ruta = rf"C:/Users/samuarta/Seguros Suramericana, S.A/EGVFAM - ifrs17_col/salidasdll/pruebitas_gestion_tecnica/data/output/{ramo}_*202501.parquet" 
+        files = glob.glob(ruta) 
 
-            for ramo, df in diferencias_dict.items():
-                df.to_pandas().to_excel(writer, sheet_name=str(ramo)[:31], index=False)
-    """
+        total_filas = 0 
+        for f in files: 
+            cnt = pl.scan_parquet(f).select(pl.len()).collect().item() 
+            total_filas += cnt 
+        
+        tamannos_output.append({
+            "Ramo": ramo,
+            "Prototipo": tot_registros,
+            "Motor": total_filas,
+            "Diferencia": tot_registros - total_filas
+        })
+    
+    tamannos_df = pd.DataFrame(tamannos_output)
+    # Exportar a Excel
+    with pd.ExcelWriter(r"C:/Users/samuarta/Proyectos/prototipo-pcr/prototipo_pcr/output/Resultados_Comparacion_RG1.xlsx", engine="xlsxwriter") as writer:
+        resumen_df.to_pandas().to_excel(writer, sheet_name="Resumen", index=False)
+        tamannos_df.to_excel(writer, sheet_name="Longitudes Output", index=False)
+        for ramo, df in diferencias_dict.items():
+            df.to_pandas().to_excel(writer, sheet_name=str(ramo)[:31], index=False)
+        for ramo, df in asistencias_dict.items():
+            if df.height > 0:
+                df.to_pandas().to_excel(writer, sheet_name=f"Asistencia {str(ramo)[:31]}", index=False)
+    #"""
