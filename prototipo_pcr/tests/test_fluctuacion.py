@@ -47,10 +47,8 @@ def test_fluctuacion(
 
     if fecha_valoracion.month == 1:
         delta_tasa = 4100 - 4050
-        tasa_fecha_valoracion = 4100
     else:
         delta_tasa = 4200 - 4100
-        tasa_fecha_valoracion = 4200
 
     df_resultado = devenga.devengar(df, fechas.fecha_valoracion).pipe(
         fluctuacion.calc_fluctuacion, tasas_cambio
@@ -59,10 +57,10 @@ def test_fluctuacion(
     saldo = df_resultado.get_column("saldo").item(0)
     liberacion = df_resultado.get_column("valor_liberacion").item(0)
 
-    constitucion_esperada = saldo * delta_tasa / tasa_fecha_valoracion
+    constitucion_esperada = saldo * delta_tasa
     constitucion_real = df_resultado.get_column("fluctuacion_constitucion").item(0)
 
-    liberacion_esperada = -liberacion * delta_tasa / tasa_fecha_valoracion
+    liberacion_esperada = -liberacion * delta_tasa
     liberacion_real = df_resultado.get_column("fluctuacion_liberacion").item(0)
 
     assert constitucion_esperada == constitucion_real

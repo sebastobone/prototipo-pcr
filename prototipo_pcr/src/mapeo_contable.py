@@ -63,6 +63,12 @@ def pivotear_output(
     multiplicador = (
         pl.when(pl.col("tipo_movimiento") == "valor_constitucion")
         .then(pl.col("tasa_cambio_fecha_constitucion"))
+        .when(
+            pl.col("tipo_movimiento").is_in(
+                ["fluctuacion_constitucion", "fluctuacion_liberacion"]
+            )
+        )
+        .then(1)
         .otherwise(pl.col("tasa_cambio_fecha_valoracion"))
     )
 
