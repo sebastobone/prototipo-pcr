@@ -60,7 +60,11 @@ def pivotear_output(
         col for col in out_deterioro_fluct.columns if col not in cols_calculadas
     ]
 
-    multiplicador = pl.col("tasa_cambio_fecha_valoracion")
+    multiplicador = (
+        pl.when(pl.col("tipo_movimiento") == "valor_constitucion")
+        .then(pl.col("tasa_cambio_fecha_constitucion"))
+        .otherwise(pl.col("tasa_cambio_fecha_valoracion"))
+    )
 
     return (
         out_deterioro_fluct
