@@ -150,7 +150,7 @@ def run_pcr():
         input_tipo_seguro,
         tabla_nomenclatura,
         insumos_no_devengo,
-    )
+    ).pipe(mapcont.agregar_marca_onerosidad, onerosidad, FECHA_VALORACION)
     output_contable.write_excel(p.RUTA_SALIDA_CONTABLE)
 
     return output_devengo_fluct, output_contable

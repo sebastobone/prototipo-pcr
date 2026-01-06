@@ -1,3 +1,5 @@
+from datetime import date
+
 import polars as pl
 import src.parametros as params
 import duckdb
@@ -175,6 +177,26 @@ def agregar_componentes_no_devengables(
     df: pl.DataFrame, componentes: list[pl.DataFrame]
 ) -> pl.DataFrame:
     return pl.concat([df] + componentes, how="diagonal_relaxed")
+
+
+def agregar_marca_onerosidad(
+    output_contable: pl.DataFrame, onerosidad: pl.DataFrame, fe_valoracion: date
+):
+    polizas_onerosas = (
+        onerosidad.filter(pl.col("fecha_calculo_onerosidad") <= fe_valoracion)
+        .group_by("compania", "ramo_sura", "poliza")
+        .agg(pl.sum("valor_prima_emitida").alias("prima_acumulada"))
+        .with_columns(
+            onerosidad=pl.when(pl.col("prima_acumulada") > 0)
+            .then(pl.lit("OO"))
+            .otherwise(pl.lit("NO"))
+        )
+        .drop("prima_acumulada")
+    )
+    return output_contable.join(
+        polizas_onerosas, on=["compania", "ramo_sura", "poliza"], how="left"
+    ).with_columns(pl.col("onerosidad").fill_null(pl.lit("NO")))
+    
 
 
 def gen_output_contable(
