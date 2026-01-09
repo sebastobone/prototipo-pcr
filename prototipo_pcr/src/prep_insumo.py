@@ -120,7 +120,12 @@ def prep_input_gasto_directo(
         .pipe(cruces.cruzar_gastos_expedicion, gasto_df)
         .with_columns(
             # mapea el tipo insumo segun el tipo de gasto
-            pl.col("tipo_gasto").replace(mapping_gastos).alias("tipo_insumo")
+            tipo_insumo=pl.when(pl.col("ramo_sura").is_in(params.RAMOS_MATEMATICA))
+            .then(
+                pl.lit("matematica_local_")
+                + pl.col("tipo_gasto").replace(mapping_gastos)
+            )
+            .otherwise(pl.col("tipo_gasto").replace(mapping_gastos))
         )
         .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
         .pipe(cruces.cruzar_excepciones_50_50, excepciones_df)
@@ -230,7 +235,12 @@ def prep_input_gasto_rea(
         .filter(pl.col("tipo_gasto").is_in(list(mapping_gastos.keys())))
         .with_columns(
             # mapea el tipo insumo segun el tipo de gasto
-            pl.col("tipo_gasto").replace(mapping_gastos).alias("tipo_insumo")
+            tipo_insumo=pl.when(pl.col("ramo_sura").is_in(params.RAMOS_MATEMATICA))
+            .then(
+                pl.lit("matematica_local_")
+                + pl.col("tipo_gasto").replace(mapping_gastos)
+            )
+            .otherwise(pl.col("tipo_gasto").replace(mapping_gastos))
         )
         .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
         .pipe(cruces.cruzar_excepciones_50_50, excepciones_df)

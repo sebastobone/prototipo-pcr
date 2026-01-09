@@ -115,3 +115,6 @@ COLUMNAS_CALCULO = [
     "constitucion_deterioro",
     "liberacion_deterioro",
 ]
+
+# Ramos que se postean como reserva matematica
+RAMOS_MATEMATICA = ["092", "095", "196"]
