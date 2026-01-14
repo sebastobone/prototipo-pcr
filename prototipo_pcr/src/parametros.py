@@ -18,6 +18,7 @@ RUTA_CARTERA_ARL = base_dir.parent / "inputs" / "cartera_arl.xlsx"
 RUTA_CUENTA_CORRIENTE = base_dir.parent / "inputs" / "cuenta_corriente.xlsx"
 RUTA_CUENTA_CORRIENTE_ARL = base_dir.parent / "inputs" / "cuenta_corriente_arl.xlsx"
 RUTA_GASTOS = base_dir.parent / "inputs" / "gastos.xlsx"
+RUTA_CAMARA_SOAT = base_dir.parent / "inputs" / "camara_soat.xlsx"
 
 # Insumos transversales
 HOJA_PARAMETROS_CONTAB = "param_contabilidad"

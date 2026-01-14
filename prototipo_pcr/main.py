@@ -47,6 +47,7 @@ def run_pcr():
     seguimiento_rea = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_SEGUIMIENTO_REA)
     produccion_arl = pl.read_excel(p.RUTA_PRODUCCION_ARL)
     costo_contrato_arl = pl.read_excel(p.RUTA_COSTO_CONTRATO_ARL)
+    camara_soat = pl.read_excel(p.RUTA_CAMARA_SOAT)
     # Insumos de onerosidad leidos desde el datalake
     onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_ONEROSIDAD)
     recup_onerosidad = pl.read_excel(p.RUTA_INSUMOS, sheet_name=p.HOJA_RECUP_ONEROSIDAD)
@@ -94,6 +95,9 @@ def run_pcr():
             produccion_dir, param_contab, excepciones, gasto, FECHA_VALORACION
         ),
         prep_data.prep_input_onerosidad(onerosidad, param_contab, FECHA_VALORACION),
+        prep_data.prep_input_prima_directo(
+            camara_soat, param_contab, excepciones, FECHA_VALORACION
+        ),
         # prepara insumos reaseguro
         prep_data.prep_input_prima_rea(
             cesion_rea, param_contab, excepciones, FECHA_VALORACION
