@@ -1,6 +1,20 @@
 import glob
 from math import ceil
+import polars as pl
 import gc
+import src.parametros as p
+import src.aux_tools as aux_tools
+import src.prep_insumo as prep_data
+import src.devenga as devg
+import src.fluctuacion as fluc
+import src.deterioro as det
+import src.mapeo_contable as mapcont
+
+# lee los parámetros e insumos relevantes
+FECHA_VALORACION = p.FECHA_VALORACION
+FECHA_VALORACION_ANTERIOR = p.FECHA_VALORACION_ANTERIOR
+FECHA_TRANSICION = p.FECHA_TRANSICION
+
 
 def input_directo(ramo: str):
     df = (pl.read_parquet(f"C:/Users/samuarta/Seguros Suramericana, S.A/EGVFAM - ifrs17_col/salidasdll/pruebitas_gestion_tecnica/data/input_directo/{ramo}_202501.parquet")
@@ -356,11 +370,10 @@ def comparar_pcr(ramo: str, chunk_size: int = 50000):
 
 if __name__ == "__main__":
     # Procesar un ramo por bloques (chunks)
-    #tasa_alertas, registros_diferencia, asistencia = comparar_pcr("083", chunk_size=40000)
-    #print(asistencia.height)
-    #asistencia.write_clipboard()
+    tasa_alertas, registros_diferencia, asistencia, tot_registros = comparar_pcr("007", chunk_size=40000)
+    registros_diferencia.write_clipboard()
 
-    #"""
+    """
     import pandas as pd 
     import polars as pl
     import glob
@@ -428,4 +441,4 @@ if __name__ == "__main__":
         for ramo, df in asistencias_dict.items():
             if df.height > 0:
                 df.to_pandas().to_excel(writer, sheet_name=f"Asistencia {str(ramo)[:31]}", index=False)
-    #"""
+    """
