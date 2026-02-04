@@ -32,6 +32,7 @@ RUTA_RIESGO_CREDITO = base_dir.parent / "inputs" / "riesgo_credito.xlsx"
 
 # Insumos de recibos contabilizados
 HOJA_PDN = "produccion_directo"
+HOJA_COMP_INV = "componente_inversion_directo"
 HOJA_CESION = "produccion_rea"
 HOJA_COMISION_REA = "comision_rea"
 HOJA_COSTO_CONTRATO = "costo_rea_noprop"
@@ -43,7 +44,7 @@ HOJA_RECUP_ONEROSIDAD = "recup_onerosidad"
 
 
 # Fechas relevantes para cada ejecución
-FECHA_VALORACION = date(2025, 1, 31)
+FECHA_VALORACION = date(2025, 9, 30)
 FECHA_TRANSICION = date(2024, 12, 31)
 FECHA_VALORACION_ANTERIOR = FECHA_VALORACION + relativedelta(months=-1)
 

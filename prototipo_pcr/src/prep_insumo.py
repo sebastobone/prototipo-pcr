@@ -19,7 +19,6 @@ fe_fin_vig_nivel = aux_tools.get_fecha_nivel(
     "nivel_detalle", params.NIVELES_DETALLE, "fecha_fin_vigencia"
 )
 
-
 def prep_input_prima_directo(
     produccion_df: pl.DataFrame,
     param_contabilidad: pl.DataFrame,
@@ -593,3 +592,69 @@ def prep_input_produccion_arl(produccion_arl: pl.DataFrame) -> pl.DataFrame:
         fecha_fin_vigencia_cobertura=pl.col("mes_cotizacion").dt.month_end(),
         fecha_expedicion_poliza=pl.col("mes_cotizacion").dt.month_start(),
     )
+
+
+def prep_input_componente_inversion(
+    componente_inversion_df: pl.DataFrame,
+    param_contabilidad: pl.DataFrame,
+    fe_valoracion: dt.date,
+) -> pl.DataFrame:
+    
+    # realiza los cruces base entre produccion del directo y parametros
+    input_componente_inversion_directo = (
+        componente_inversion_df.filter(pl.col("fecha_contabilizacion_recibo") <= fe_valoracion)
+        .pipe(cruces.cruzar_param_contabilidad, param_contabilidad)
+
+        # la fecha de constitucion de reserva es la de emision del recibo
+        # NOTA: La fecha de emision es la fecha de contabilizacion en SAP
+        .with_columns(
+            pl.col("fecha_contabilizacion_recibo").alias("fecha_constitucion")
+        )
+    )
+
+    # Construir fe_fin_devengo
+    fe_fin_devengo = (
+        pl.when(pl.col("fecha_cancelacion_poliza").is_null())
+        .then(
+            pl.max_horizontal([
+                pl.col("fecha_fin_vigencia_poliza"),
+                pl.col("fecha_constitucion")
+            ])
+        )
+        .otherwise(
+            # Calcular el maximo 
+            pl.max_horizontal([
+                # Calcular el mínimo por grupo compania, ramo, poliza
+                pl.min_horizontal(
+                    [   
+                        pl.when(pl.col("tipo_op").is_in(['16', '26']))
+                        .then(pl.col("fecha_constitucion"))
+                        .min()
+                        .over(["compania", "ramo_sura", "poliza"]),
+
+                        pl.col('fecha_fin_vigencia_poliza')
+                    ]
+                ),
+                pl.col("fecha_cancelacion_poliza"),
+                pl.col("fecha_constitucion")
+            ])
+        )
+    )
+    
+    
+    input_componente_inversion_directo = input_componente_inversion_directo.with_columns(
+        # la fecha de inicio de devengo que depende de la vigencia de la póliza o la fecha
+        # de contabilización del registro
+        pl.max_horizontal([
+            pl.col("fecha_constitucion"),
+            pl.col('fecha_inicio_vigencia_poliza')
+        ]).alias("fecha_inicio_devengo"),
+
+        # la fecha de fin del devengo
+        fe_fin_devengo.alias("fecha_fin_devengo"),
+        
+        # el valor base del devengo
+        pl.col("valor_prima_emitida").alias("valor_base_devengo")
+    )
+    
+    return input_componente_inversion_directo

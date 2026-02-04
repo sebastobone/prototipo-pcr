@@ -307,6 +307,52 @@ def devengo_diario_vs_limite(input_costo: pl.DataFrame) -> pl.DataFrame:
 
     return output_devengo_costo
 
+def devengo_componente_inversion(
+        input_deveng_comp_inv: pl.DataFrame
+) -> pl.DataFrame:
+    """
+    Recibe un input preprocesado de devengamiento y devuelve el devengo del componente de inversión, 
+    el cual técnicamente no es un devengo pues va acumulando dinero para liberar cuando se cancele 
+    la póliza o se llegue a la fecha de fin de vigencia de ésta
+    """
+    output_deveng_comp_inv = (
+        input_deveng_comp_inv
+        .with_columns([
+            aux_tools.yyyymm(pl.col("fecha_valoracion")).alias("mes_valoracion"),
+            aux_tools.yyyymm(pl.col("fecha_constitucion")).alias("mes_constitucion"),
+            aux_tools.yyyymm(pl.col("fecha_fin_devengo")).alias("mes_fin_devengo"),
+        ])
+        .with_columns([
+            pl.when(
+                (pl.col('mes_valoracion') == pl.col('mes_constitucion')) &
+                (pl.col('fecha_valoracion') >= pl.col('fecha_constitucion'))
+            )
+            .then(pl.col('valor_base_devengo'))
+            .otherwise(pl.lit(0.0))
+            .alias('valor_constitucion'),
+            
+            pl.when(
+                (pl.col("fecha_valoracion") >= pl.col("fecha_fin_devengo"))
+            )
+            .then(pl.col("valor_base_devengo"))
+            .otherwise(pl.lit(0.0))
+            .alias("valor_liberacion_acum"),
+            
+            pl.when(
+                (pl.col('mes_valoracion') == pl.col('mes_fin_devengo')) &
+                (pl.col('fecha_valoracion') >= pl.col('fecha_fin_devengo'))
+            )
+            .then(pl.col('valor_base_devengo'))
+            .otherwise(pl.lit(0.0))
+            .alias("valor_liberacion"),
+        ])
+        .with_columns([
+            (pl.col("valor_base_devengo") - pl.col("valor_liberacion_acum"))
+            .alias("saldo")
+        ])
+    )
+    
+    return output_deveng_comp_inv
 
 def etiquetar_resultado_devengo(data_devengo: pl.DataFrame) -> pl.DataFrame:
     """
@@ -355,6 +401,8 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
             .alias("fecha_valoracion_anterior")
         )
     )
+    # define si es componente de inversión
+    aplica_comp_inv = pl.col('tipo_insumo') == 'componente_inversion_directo'
     # define si aplica devengo de costo contrato
     aplica_costo_contrato = pl.col("tipo_insumo").is_in(
         ["costo_contrato_rea_noprop", "recup_onerosidad_np"]
@@ -365,20 +413,26 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
     )
     aplica_5050 = (dias_devengo <= 32) & (pl.col("candidato_devengo_50_50") == 1)
     input_devengo = input_devengo.with_columns(
-        pl.when(aplica_5050)
+        pl.when(aplica_comp_inv)
+        .then(pl.lit("componente_inversion"))
+        .when(aplica_5050)
         .then(pl.lit("regla_50_50"))
         .otherwise(pl.lit("diario"))
         .alias("regla_devengo")
     )
-    input_devengo_5050 = input_devengo.filter(aplica_5050 & (~aplica_costo_contrato))
-    input_devengo_costcon = input_devengo.filter(aplica_costo_contrato & (~aplica_5050))
+    
+    input_devengo_comp_inv = input_devengo.filter(aplica_comp_inv)
+    input_devengo_5050 = input_devengo.filter(aplica_5050 & (~aplica_costo_contrato) & (~aplica_comp_inv))
+    input_devengo_costcon = input_devengo.filter(aplica_costo_contrato & (~aplica_5050) & (~aplica_comp_inv))
     input_devengo_diario = input_devengo.filter(
-        (~aplica_5050) & (~aplica_costo_contrato)
+        (~aplica_5050) & (~aplica_costo_contrato) & (~aplica_comp_inv)
     )
 
     # se inicializan outputs vacío y campos output como copia de la lista (porque si no modifica la original)
     outputs, campos_output = [], params.CAMPOS_OUTPUT_CONTABLE.copy()
     # aplica el devengamiento a cada particion solo si tiene datos de entrada
+    if input_devengo_comp_inv.height > 0:
+        outputs.append(devengo_componente_inversion(input_devengo_comp_inv))
     if input_devengo_diario.height > 0:
         outputs.append(deveng_diario(input_devengo_diario))
     if input_devengo_5050.height > 0:
@@ -408,12 +462,13 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
                     pl.col("valor_liberacion_acum") * -1 * pl.col("signo_constitucion")
                 ).alias("valor_liberacion_acum"),
                 (pl.col("saldo") * pl.col("signo_constitucion")).alias("saldo"),
-                (
-                    pl.col("saldo")
-                    - pl.col("valor_constitucion")
-                    - pl.col("valor_liberacion")
-                ).alias("saldo_anterior"),
             ]
+        )
+        .with_columns(
+            (pl.col("saldo") 
+             - pl.col("valor_constitucion")
+             - pl.col("valor_liberacion")
+            ).alias("saldo_anterior"),
         )
         .pipe(etiquetar_resultado_devengo)
     )
