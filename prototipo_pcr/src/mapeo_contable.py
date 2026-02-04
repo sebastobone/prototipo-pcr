@@ -182,6 +182,12 @@ def agregar_componentes_no_devengables(
 def agregar_marca_onerosidad(
     output_contable: pl.DataFrame, onerosidad: pl.DataFrame, fe_valoracion: date
 ):
+    output_contable = output_contable.with_columns( 
+        pl.col("poliza").cast(pl.Utf8) 
+    ) 
+    onerosidad = onerosidad.with_columns( 
+        pl.col("poliza").cast(pl.Utf8)
+    )
     polizas_onerosas = (
         onerosidad.filter(pl.col("fecha_calculo_onerosidad") <= fe_valoracion)
         .group_by("compania", "ramo_sura", "poliza")

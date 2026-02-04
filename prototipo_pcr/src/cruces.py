@@ -59,7 +59,7 @@ def cruzar_descuento(
             LEFT JOIN descuento AS dcto
                 ON prod.compania = dcto.compania
                 AND prod.ramo_sura = dcto.ramo_sura
-                AND prod.poliza = dcto.poliza
+                AND CAST(prod.poliza AS VARCHAR) = CAST(dcto.poliza AS VARCHAR)
                 AND prod.recibo = dcto.recibo{suffix_rea}
                 AND prod.poliza_certificado = dcto.poliza_certificado
                 AND prod.amparo = dcto.amparo
