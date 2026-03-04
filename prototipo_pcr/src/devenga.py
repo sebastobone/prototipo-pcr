@@ -408,10 +408,10 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
         ["costo_contrato_rea_noprop", "recup_onerosidad_np"]
     )
     # define si aplica 5050 y hace la particion del insumo
-    dias_devengo = aux_tools.calcular_dias_diferencia(
-        pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_devengo")
+    dias_vigencia = aux_tools.calcular_dias_diferencia(
+        pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_vigencia")
     )
-    aplica_5050 = (dias_devengo <= 32) & (pl.col("candidato_devengo_50_50") == 1)
+    aplica_5050 = (dias_vigencia <= 32) & (pl.col("candidato_devengo_50_50") == 1)
     input_devengo = input_devengo.with_columns(
         pl.when(aplica_comp_inv)
         .then(pl.lit("componente_inversion"))
@@ -422,8 +422,8 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
     )
     
     input_devengo_comp_inv = input_devengo.filter(aplica_comp_inv)
+    input_devengo_costcon = input_devengo.filter(aplica_costo_contrato)
     input_devengo_5050 = input_devengo.filter(aplica_5050 & (~aplica_costo_contrato) & (~aplica_comp_inv))
-    input_devengo_costcon = input_devengo.filter(aplica_costo_contrato & (~aplica_5050) & (~aplica_comp_inv))
     input_devengo_diario = input_devengo.filter(
         (~aplica_5050) & (~aplica_costo_contrato) & (~aplica_comp_inv)
     )
