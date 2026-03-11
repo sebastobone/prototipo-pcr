@@ -28,6 +28,7 @@ class ResultadosDevengo:
     liberacion_acum: Optional[float] = None
     saldo: Optional[float] = None
     fecha_liberacion: Optional[date] = None
+    regla_devengo: Optional[str] = None
 
 @dataclass
 class registro_prueba_componente_inversion:
@@ -124,6 +125,7 @@ def extraer_resultado_devengo(
         liberacion=resultado.get_column("valor_liberacion").item(0),
         liberacion_acum=resultado.get_column("valor_liberacion_acum").item(0),
         saldo=resultado.get_column("saldo").item(0),
+        regla_devengo=resultado.get_column("regla_devengo").item(0),
     )
 
 def extraer_resultado_componente_inversion(
@@ -138,7 +140,7 @@ def extraer_resultado_componente_inversion(
     )
 
 def validar_resultado_devengo(
-    resultado_devengo: ResultadosDevengo, resultado_esperado: ResultadosDevengo
+    resultado_devengo: ResultadosDevengo, resultado_esperado: ResultadosDevengo, test_5050=False
 ):
     assert (
         resultado_devengo.estado_devengo == resultado_esperado.estado_devengo
@@ -161,6 +163,10 @@ def validar_resultado_devengo(
     assert resultado_devengo.saldo == pytest.approx(
         resultado_esperado.saldo
     ), "Saldo incorrecto"
+    if test_5050:
+        assert (
+            resultado_devengo.regla_devengo == resultado_esperado.regla_devengo
+        ), "Regla devengo incorrecto"
 
 def validar_resultado_componente_inversion(
     resultado_devengo: ResultadosDevengo, resultado_esperado: ResultadosDevengo

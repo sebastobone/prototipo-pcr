@@ -21,11 +21,18 @@ def test_pdn_anticipada_valorada_mes_del_recibo(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
     df_resultado = devenga.devengar(df, fechas.fecha_valoracion)
@@ -65,11 +72,18 @@ def test_pdn_anticipada_valorada_pre_de_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
     resultado = devenga.devengar(df, fechas.fecha_valoracion)
@@ -109,11 +123,18 @@ def test_pdn_anticipada_valorada_en_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
     df_resultado = devenga.devengar(df, fechas.fecha_valoracion)
@@ -167,11 +188,18 @@ def test_pdn_anticipada_valorada_post_de_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
     df_resultado = devenga.devengar(df, fechas.fecha_valoracion)
@@ -203,21 +231,28 @@ def test_pdn_anticipada_50_50_valoracion_mes_recibo(
         fecha_valoracion=date(2024, 10, 31),
         fecha_expedicion_poliza=date(2025, 1, 1),
         fecha_contabilizacion_recibo=date(2024, 10, 4),
-        fecha_inicio_vigencia_recibo=date(2025, 1, 15),
-        fecha_fin_vigencia_recibo=date(2025, 2, 15),
-        fecha_inicio_vigencia_cobertura=date(2025, 1, 15),
-        fecha_fin_vigencia_cobertura=date(2025, 2, 15),
+        fecha_inicio_vigencia_recibo=date(2025, 1, 10),
+        fecha_fin_vigencia_recibo=date(2025, 2, 10),
+        fecha_inicio_vigencia_cobertura=date(2025, 1, 10),
+        fecha_fin_vigencia_cobertura=date(2025, 2, 10),
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
-    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4")
+    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4_local")
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
@@ -228,9 +263,10 @@ def test_pdn_anticipada_50_50_valoracion_mes_recibo(
         liberacion=0,
         liberacion_acum=0,
         saldo=-prima,
+        regla_devengo="mensual_devengo_50_50"
     )
 
-    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
+    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado, test_5050=True)
 
 def test_pdn_anticipada_50_50_valoracion_post_recibo_pre_vigencia(
     param_contabilidad: pl.DataFrame, excepciones_df: pl.DataFrame
@@ -250,14 +286,21 @@ def test_pdn_anticipada_50_50_valoracion_post_recibo_pre_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
-    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4")
+    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4_local")
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
@@ -268,9 +311,10 @@ def test_pdn_anticipada_50_50_valoracion_post_recibo_pre_vigencia(
         liberacion=0,
         liberacion_acum=0,
         saldo=-prima,
+        regla_devengo="mensual_devengo_50_50"
     )
 
-    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
+    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado, test_5050=True)
 
 def test_pdn_anticipada_50_50_valoracion_mes_inicio_vigencia(
     param_contabilidad: pl.DataFrame, excepciones_df: pl.DataFrame
@@ -290,14 +334,21 @@ def test_pdn_anticipada_50_50_valoracion_mes_inicio_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
-    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4")
+    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4_local")
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
@@ -308,9 +359,10 @@ def test_pdn_anticipada_50_50_valoracion_mes_inicio_vigencia(
         liberacion=prima/2,
         liberacion_acum=prima/2,
         saldo=-prima/2,
+        regla_devengo="mensual_devengo_50_50"
     )
 
-    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
+    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado, test_5050=True)
 
 def test_pdn_anticipada_50_50_valoracion_mes_fin_vigencia(
     param_contabilidad: pl.DataFrame, excepciones_df: pl.DataFrame
@@ -330,14 +382,21 @@ def test_pdn_anticipada_50_50_valoracion_mes_fin_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
-    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4")
+    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4_local")
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
@@ -348,9 +407,10 @@ def test_pdn_anticipada_50_50_valoracion_mes_fin_vigencia(
         liberacion=prima/2,
         liberacion_acum=prima,
         saldo=0,
+        regla_devengo="mensual_devengo_50_50"
     )
 
-    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
+    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado, test_5050=True)
     
 
 def test_pdn_anticipada_50_50_valoracion_post_fin_vigencia(
@@ -371,14 +431,21 @@ def test_pdn_anticipada_50_50_valoracion_post_fin_vigencia(
     )
     prima = 1200
 
-    df = cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima).pipe(
-        prep_insumo.prep_input_prima_directo,
-        param_contabilidad,
-        excepciones_df,
-        fechas.fecha_valoracion,
+    df = (
+        cf.crear_input_devengo(fechas, "produccion_directo", "directo", prima)
+        .pipe(
+            prep_insumo.prep_input_prima_directo,
+            param_contabilidad,
+            excepciones_df,
+            fechas.fecha_valoracion,
+        )
+        .with_columns(
+            pl.lit(0).alias("aplica_comp_financ"),
+            pl.lit(None).cast(pl.Float64).alias("acreditacion_intereses"),
+        )
     )
 
-    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4")
+    df_resultado = devenga.devengar(df, fechas.fecha_valoracion).filter(pl.col("tipo_contabilidad") == "ifrs4_local")
     resultado_devengo = cf.extraer_resultado_devengo(df_resultado)
 
     resultado_esperado = cf.ResultadosDevengo(
@@ -389,6 +456,7 @@ def test_pdn_anticipada_50_50_valoracion_post_fin_vigencia(
         liberacion=0,
         liberacion_acum=prima,
         saldo=0,
+        regla_devengo="mensual_devengo_50_50"
     )
 
-    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado)
+    cf.validar_resultado_devengo(resultado_devengo, resultado_esperado, test_5050=True)
