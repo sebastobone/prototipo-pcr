@@ -146,15 +146,11 @@ def deveng_cincuenta(
     """
     Recibe un input preprocesado para devengo y devuelve el devengamiento segun las reglas del 50/50
     """
-
-    mes_fin_vigencia = aux_tools.yyyymm(pl.col('fecha_fin_devengo'))
+    entra_devengado = pl.col("fecha_constitucion") > pl.col("fecha_fin_devengo")
     mes_constitucion = aux_tools.yyyymm(pl.col("fecha_constitucion"))
-    
-    entra_devengado = mes_constitucion > mes_fin_vigencia
+    mes_valoracion = aux_tools.yyyymm(pl.col("fecha_valoracion"))
+    es_periodo_constit = mes_constitucion == mes_valoracion
 
-    es_periodo_constit = (
-        pl.col("fecha_constitucion") <= pl.col("fecha_valoracion")
-    ) & (pl.col("fecha_inicio_periodo") <= pl.col("fecha_constitucion"))
     # aplica las condiciones para constituir
     output_deveng_cinq = input_deveng_cinq.with_columns(
         pl.when(es_periodo_constit)
@@ -165,49 +161,67 @@ def deveng_cincuenta(
 
     # libera solo a cierre de mes -> si no es cierre la norma me obliga a mantener el 50%
     es_cierre_mes = pl.lit(aux_tools.es_ultimo_dia_mes(fe_valoracion))
-    # primera liberacion ocurre el max mes entre mes constitucion y mes inicio devengo
-    aux_fe_primera_lib = pl.col("fecha_inicio_devengo")
-    mes_primera_lib = aux_tools.yyyymm(aux_fe_primera_lib)
-    mes_segunda_lib = aux_tools.yyyymm(aux_fe_primera_lib.dt.offset_by("1mo"))
+    
+    # como a este módulo solo entran pólizas que estén en dos mes distintos se definen 
+    # los meses de las liberaciones de la siguiente manera, así podemos reflejar incluso
+    # la doble liberación si la constitución entró el mismo mes que finaliza vigencia
+    mes_primera_lib = aux_tools.yyyymm(pl.col("fecha_inicio_devengo"))
+    mes_segunda_lib = aux_tools.yyyymm(pl.col("fecha_fin_devengo"))
+    debe_liberar_todo = mes_primera_lib == mes_segunda_lib                                                          
+    vigencia_terminada = pl.col("fecha_valoracion") >= pl.col("fecha_fin_devengo")
 
-    mes_valoracion = aux_tools.yyyymm(pl.col("fecha_valoracion"))
     # calcula la liberacion por meses
     lib_mes_actual = (
         pl.when(entra_devengado)
         .then(pl.col("valor_base_devengo") * es_periodo_constit)
         .when(
-            ((mes_valoracion == mes_primera_lib) | (mes_valoracion == mes_segunda_lib))
-            & es_cierre_mes
-        )
-        .then(pl.col("valor_base_devengo") * 0.5)
-        .otherwise(0.0)
-    )
-    # para conocer el saldo debo acumular la liberacion que solo se puede dar en max 2 periodos
-    lib_acumulada = (
-        pl.when(
-            (mes_valoracion > mes_segunda_lib) | entra_devengado
+            (mes_valoracion == mes_primera_lib)
+            & debe_liberar_todo
+            & vigencia_terminada
         )
         .then(pl.col("valor_base_devengo"))
-        .when(
-            ((mes_valoracion == mes_segunda_lib) & es_cierre_mes)
-        )
-        .then(pl.col("valor_base_devengo"))
-        .when(
-            ((mes_valoracion == mes_segunda_lib) & ~es_cierre_mes)
-        )
-        .then(pl.col("valor_base_devengo") * 0.5)
         .when(
             (mes_valoracion == mes_primera_lib)
+            & (~debe_liberar_todo)
             & es_cierre_mes
+        )
+        .then(pl.col("valor_base_devengo") * 0.5)
+        .when(
+            (mes_valoracion == mes_segunda_lib)
+            & vigencia_terminada
         )
         .then(pl.col("valor_base_devengo") * 0.5)
         .otherwise(0.0)
     )
+
+    # para conocer el saldo debo acumular la liberacion que solo se puede dar en max 2 periodos
+    lib_acumulada = (
+        # la reserva ya se ha liberado si ha terminado vigencia o entró devengado
+        pl.when(vigencia_terminada | entra_devengado)
+        .then(pl.col("valor_base_devengo"))
+        
+        # Si debo liberar toda la reserva pero la vigencia no ha terminado, quiere decir que aun
+        # no he liberado la reserva
+        .when((mes_valoracion == mes_segunda_lib) & debe_liberar_todo & ~vigencia_terminada)
+        .then(0.0)
+
+        #
+        .when((mes_valoracion == mes_segunda_lib) & ~debe_liberar_todo & ~vigencia_terminada)
+        .then(pl.col("valor_base_devengo") * 0.5)
+
+        # En mes_primera_lib liberando 50%, este sería el caso normal y solo se hace cuando 
+        # es cierre de mes
+        .when((mes_valoracion == mes_primera_lib) & ~debe_liberar_todo & es_cierre_mes)
+        .then(pl.col("valor_base_devengo") * 0.5)
+
+        .otherwise(0.0)
+    )
+
     # el estado segun las fechas
     devengo_no_iniciado = pl.col("fecha_valoracion") < pl.col("fecha_inicio_devengo")
-    devengo_en_curso = (pl.col("fecha_inicio_devengo") <= pl.col('fecha_valoracion')) & (
-        pl.col('fecha_valoracion') < pl.col("fecha_inicio_devengo").dt.offset_by('1mo').dt.month_end()
-    )
+    devengo_en_curso = (
+        pl.col("fecha_inicio_devengo") <= pl.col("fecha_valoracion")
+    ) & (pl.col("fecha_valoracion") < pl.col("fecha_fin_devengo"))
 
     output_deveng_cinq = (
         output_deveng_cinq.with_columns(
@@ -238,7 +252,6 @@ def deveng_cincuenta(
     )
 
     return output_deveng_cinq
-
 
 def devengo_diario_vs_limite(input_costo: pl.DataFrame) -> pl.DataFrame:
     """
@@ -534,35 +547,73 @@ def devengar(input_deveng: pl.DataFrame, fe_valoracion: dt.date) -> pl.DataFrame
         )
     )
     # define si aplica componente de financiacion
-    aplica_financiacion = pl.col('aplica_comp_financ') == 1
+    aplica_financiacion = pl.col('aplica_comp_financ').fill_null(0) == 1
     # define si es componente de inversión
     aplica_comp_inv = pl.col('tipo_insumo') == 'componente_inversion_directo'
     # define si aplica devengo de costo contrato
     aplica_costo_contrato = pl.col("tipo_insumo").is_in(
         ["costo_contrato_rea_noprop", "recup_onerosidad_np"]
     )
-    # define si aplica 5050 y hace la particion del insumo
+
+    # define si aplica 50_50 y hace la particion del insumo entre los 
+    # registros que se devengan con la regla del 50_50 y los que se 
+    # devengan con la regla de devengo diario 
     dias_vigencia = aux_tools.calcular_dias_diferencia(
-        pl.col("fecha_fin_devengo"), pl.col("fecha_inicio_vigencia")
+        pl.col("fecha_fin_devengo"),
+        pl.col("fecha_inicio_vigencia"),
+        incluir_extremos=True,
     )
-    aplica_5050 = (dias_vigencia <= 32) & (pl.col("candidato_devengo_50_50") == 1)
+    aplica_5050 = (
+        (dias_vigencia <= 32)
+        & (pl.col("candidato_devengo_50_50") == 1)
+    )
+
+    # determinamos cantidades de días relevantes para determinar la 
+    # la partición del insumo donde aplica la regla del 50_50
+    # dias_devengados_en_primera_liberacion = aux_tools.calcular_dias_diferencia(
+    #     pl.col("fecha_inicio_vigencia").dt.month_end(),
+    #     pl.col("fecha_inicio_vigencia"),
+    #     incluir_extremos=True,
+    # )
+    meses_vigencia = (
+        pl.col("fecha_fin_devengo").dt.year()
+        - pl.col("fecha_inicio_vigencia").dt.year()
+    ) * 12 + (
+        pl.col("fecha_fin_devengo").dt.month()
+        - pl.col("fecha_inicio_vigencia").dt.month()
+    )
+
+    #condicion_5050_meses_vigencia_1 = dias_devengados_en_primera_liberacion / dias_vigencia > 0.5
+    es_mensual_5050 = aplica_5050 & (meses_vigencia == 1)
+    es_mensual_diario = aplica_5050 & (meses_vigencia != 1)
+
     input_devengo = input_devengo.with_columns(
         pl.when(aplica_comp_inv)
         .then(pl.lit("componente_inversion"))
-        .when(aplica_5050)
-        .then(pl.lit("regla_50_50"))
+        .when(es_mensual_5050)
+        .then(pl.lit("mensual_devengo_50_50"))
+        .when(es_mensual_diario)
+        .then(pl.lit("mensual_devengo_diario"))
         .when(aplica_financiacion)
-        .then(pl.lit('componente_financiacion'))
+        .then(pl.lit("componente_financiacion"))
         .otherwise(pl.lit("diario"))
         .alias("regla_devengo")
     )
-    
+
     input_devengo_comp_financiacion = input_devengo.filter(aplica_financiacion)
     input_devengo_comp_inv = input_devengo.filter(aplica_comp_inv)
     input_devengo_costcon = input_devengo.filter(aplica_costo_contrato)
-    input_devengo_5050 = input_devengo.filter(aplica_5050 & (~aplica_costo_contrato) & (~aplica_comp_inv))
+    input_devengo_5050 = input_devengo.filter(
+        es_mensual_5050
+        & (~aplica_costo_contrato)
+        & (~aplica_comp_inv)
+        & (~aplica_financiacion)
+    )
     input_devengo_diario = input_devengo.filter(
-        (~aplica_5050) & (~aplica_costo_contrato) & (~aplica_comp_inv) & (~aplica_financiacion)
+        (~es_mensual_5050)
+        & (~aplica_costo_contrato)
+        & (~aplica_comp_inv)
+        & (~aplica_financiacion)
     )
 
     # se inicializan outputs vacío y campos output como copia de la lista (porque si no modifica la original)
