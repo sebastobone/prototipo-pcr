@@ -71,7 +71,11 @@ def pivotear_output(
             )
         )
         .then(1)
-        .otherwise(pl.col("tasa_cambio_fecha_valoracion"))
+        .otherwise(
+            pl.when(pl.col("tipo_contabilidad").is_in(["ifrs4_local", "ifrs17_local"]))
+            .then(pl.col("tasa_cambio_fecha_valoracion_local"))
+            .otherwise(pl.col("tasa_cambio_fecha_valoracion_corporativo"))
+        )
     )
 
     return (
