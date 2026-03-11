@@ -21,7 +21,7 @@ RUTA_GASTOS = base_dir.parent / "inputs" / "gastos - tests.xlsx"
 RUTA_CAMARA_SOAT = base_dir.parent / "inputs" / "camara_soat.xlsx"
 
 # Insumos transversales
-HOJA_PARAMETROS_CONTAB = "param_contabilidad"
+HOJA_PARAMETROS_CONTAB = "param_contabilidad_nuevo"
 HOJA_EXCEPCIONES_50_50 = "excepciones_50_50"
 HOJA_MONEDA = "tasa_cambio"
 HOJA_DESCUENTO = "porc_descuento"
@@ -48,7 +48,7 @@ RUTA_INFLACION = base_dir.parent / "inputs" / "inflacion_mensual.xlsx"
 RUTA_INFLACION = base_dir.parent / "inputs" / "irr_mensual_202411.xlsx"
 
 # Fechas relevantes para cada ejecución
-FECHA_VALORACION = date(2025, 9, 30)
+FECHA_VALORACION = date(2025, 2, 28)
 FECHA_TRANSICION = date(2024, 12, 31)
 FECHA_VALORACION_ANTERIOR = FECHA_VALORACION + relativedelta(months=-1)
 
