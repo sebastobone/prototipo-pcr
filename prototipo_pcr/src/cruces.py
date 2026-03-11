@@ -237,52 +237,48 @@ def cruzar_excepciones_50_50(
 
     return base
 
-
 def cruzar_tasas_cambio(
     base: pl.DataFrame,
     tasas_cambio: pl.DataFrame,
-    val_anterior: bool = True,
-    bautizo: bool = True,
-    liquidacion: bool = True,
 ) -> pl.DataFrame:
-    # Crea la parte opcional del query para cruzar otras tasas
-    tasa_bool = [val_anterior, bautizo, liquidacion]
-    tasa_col = [
-        ", COALESCE(tfval_ant.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_anterior",
-        ", COALESCE(tconst.tasa_cambio, 1) AS tasa_cambio_fecha_constitucion",
-        ", COALESCE(tliquid.tasa_cambio, 1) AS tasa_cambio_fecha_liquidacion",
-    ]
-    tasa_join = [
-        """LEFT JOIN tasas_cambio AS tfval_ant
-            ON base.fecha_valoracion_anterior = tfval_ant.fecha
-            AND base.moneda = tfval_ant.moneda_origen""",
-        """LEFT JOIN tasas_cambio AS tconst
-            ON base.fecha_constitucion = tconst.fecha
-            AND base.moneda = tconst.moneda_origen""",
-        """LEFT JOIN tasas_cambio AS tliquid
-           ON base.fecha_fin_devengo = tliquid.fecha
-           AND base.moneda = tliquid.moneda_origen""",
-    ]
-    cols_query, joins_query = "", ""
-    for tb, tc, tj in zip(tasa_bool, tasa_col, tasa_join):
-        if tb:
-            cols_query += "\n" + tc
-            joins_query += "\n" + tj
+    query = """
+         SELECT
+            base.*,
 
-    return duckdb.sql(
-        f"""
-        SELECT
-            base.*
-            , COALESCE(tfval.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion
-            {cols_query}
+            COALESCE(tfval_cor.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_corporativo,
+            COALESCE(tfval_loc.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_local,
+
+            COALESCE(tfval_ant_cor.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_anterior_corporativo,
+            COALESCE(tfval_ant_loc.tasa_cambio, 1) AS tasa_cambio_fecha_valoracion_anterior_local,
+
+            COALESCE(tconst.tasa_cambio, 1) AS tasa_cambio_fecha_constitucion
+            
         FROM base
-        LEFT JOIN tasas_cambio AS tfval
-            ON base.fecha_valoracion = tfval.fecha
-            AND base.moneda = tfval.moneda_origen
-            {joins_query}
-        """
-    ).pl()
+        
+        LEFT JOIN tasas_cambio AS tfval_cor
+            ON base.fecha_valoracion = tfval_cor.fecha
+            AND base.moneda = tfval_cor.moneda_origen
 
+        LEFT JOIN tasas_cambio AS tfval_loc
+            ON base.fecha_valoracion + INTERVAL 1 DAY = tfval_loc.fecha
+            AND base.moneda = tfval_loc.moneda_origen
+
+            
+        LEFT JOIN tasas_cambio AS tfval_ant_cor
+            ON base.fecha_valoracion_anterior = tfval_ant_cor.fecha
+            AND base.moneda = tfval_ant_cor.moneda_origen
+        
+        LEFT JOIN tasas_cambio AS tfval_ant_loc
+            ON base.fecha_valoracion_anterior + INTERVAL 1 DAY = tfval_ant_loc.fecha
+            AND base.moneda = tfval_ant_loc.moneda_origen
+
+            
+        LEFT JOIN tasas_cambio AS tconst
+            ON base.fecha_constitucion = tconst.fecha
+            AND base.moneda = tconst.moneda_origen
+        """
+    return duckdb.sql(query).pl()
+        
 
 def cruzar_parm_financiacion(
     base: pl.DataFrame,
